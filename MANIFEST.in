@@ -1,0 +1,2 @@
+include versioneer.py
+include interpol/_version.py
