@@ -271,6 +271,69 @@ output : (..., *spatial) tensor
     Coefficient image.
 """
 ```
+
+```python
+interpol.resize(
+    image, 
+    factor=None, 
+    shape=None, 
+    anchor='c',
+    interpolation=1, 
+    prefilter=True
+)
+"""Resize an image by a factor or to a specific shape.
+
+Notes
+-----
+.. A least one of `factor` and `shape` must be specified
+.. If `anchor in ('centers', 'edges')`, exactly one of `factor` or
+   `shape must be specified.
+.. If `anchor in ('first', 'last')`, `factor` must be provided even
+   if `shape` is specified.
+.. Because of rounding, it is in general not assured that
+   `resize(resize(x, f), 1/f)` returns a tensor with the same shape as x.
+
+        edges          centers          first           last
+    e - + - + - e   + - + - + - +   + - + - + - +   + - + - + - +
+    | . | . | . |   | c | . | c |   | f | . | . |   | . | . | . |
+    + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +
+    | . | . | . |   | . | . | . |   | . | . | . |   | . | . | . |
+    + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +
+    | . | . | . |   | c | . | c |   | . | . | . |   | . | . | l |
+    e _ + _ + _ e   + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +
+
+Parameters
+----------
+image : (batch, channel, *inshape) tensor
+    Image to resize
+factor : float or list[float], optional
+    Resizing factor
+    * > 1 : larger image <-> smaller voxels
+    * < 1 : smaller image <-> larger voxels
+shape : (ndim,) list[int], optional
+    Output shape
+anchor : {'centers', 'edges', 'first', 'last'} or list, default='centers'
+    * In cases 'c' and 'e', the volume shape is multiplied by the
+      zoom factor (and eventually truncated), and two anchor points
+      are used to determine the voxel size.
+    * In cases 'f' and 'l', a single anchor point is used so that
+      the voxel size is exactly divided by the zoom factor.
+      This case with an integer factor corresponds to subslicing
+      the volume (e.g., `vol[::f, ::f, ::f]`).
+    * A list of anchors (one per dimension) can also be provided.
+interpolation : int or sequence[int], default=1
+    Interpolation order.
+prefilter : bool, default=True
+    Apply spline pre-filter (= interpolates the input)
+
+Returns
+-------
+resized : (batch, channel, *shape) tensor
+    Resized image
+
+"""
+```
+
 ## License
 
 torch-interpol is released under the MIT license.

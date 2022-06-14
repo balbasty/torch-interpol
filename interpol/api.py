@@ -59,7 +59,6 @@ _doc_bound_coeff = \
     /!\ Only 'dct1', 'dct2' and 'dft' are implemented for interpolation
         orders >= 6."""
 
-
 _ref_coeff = \
 """..[1]  M. Unser, A. Aldroubi and M. Eden.
        "B-Spline Signal Processing: Part I-Theory,"
