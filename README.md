@@ -77,6 +77,8 @@ plt.title('5th order')
 plt.show()
 ```
 
+**See also our [example notebooks](examples/)**
+
 ## Quick doc
 
 
