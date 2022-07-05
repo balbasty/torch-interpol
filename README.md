@@ -16,11 +16,7 @@ PyTorch-based package dedicated to NeuroImaging and Medical Image Computing.
 ## Installation
 
 ```shell
-pip install git+https://github.com/balbasty/torch-interpol
-
-# Or, alternatively
-git clone git@github.com:balbasty/torch-interpol.git
-pip install ./torch-interpol
+pip install torch-interpol
 ```
 
 ## Usage
