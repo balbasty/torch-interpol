@@ -71,7 +71,8 @@ def list_sum_int(x: List[int]) -> int:
 @torch.jit.script
 def list_prod_tensor(x: List[Tensor]) -> Tensor:
     if len(x) == 0:
-        return torch.ones([])
+        empty: List[int] = []
+        return torch.ones(empty)
     x0 = x[0]
     for x1 in x[1:]:
         x0 = x0 * x1
@@ -81,7 +82,8 @@ def list_prod_tensor(x: List[Tensor]) -> Tensor:
 @torch.jit.script
 def list_sum_tensor(x: List[Tensor]) -> Tensor:
     if len(x) == 0:
-        return torch.ones([])
+        empty: List[int] = []
+        return torch.ones(empty)
     x0 = x[0]
     for x1 in x[1:]:
         x0 = x0 + x1
