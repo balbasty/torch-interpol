@@ -117,21 +117,21 @@ def pull(inp, grid, bound: List[Bound], spline: List[Spline],
         out1 = inp.gather(-1, idx)
 
         # apply sign
-        sign1 = make_sign([torch.jit.annotate(Optional[Tensor], sgn[n])
-                           for sgn, n in zip(signs, nodes)])
+        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
-            out1 *= sign1
+            out1 = out1 * sign1
 
         # apply weights
         for weight, n in zip(weights, nodes):
-            out1 *= weight[n]
+            out1 = out1 * weight[n]
 
         # accumulate
-        out += out1
+        out = out + out1
 
     # out-of-bounds mask
     if mask is not None:
-        out *= mask
+        out = out * mask
 
     out = out.reshape(list(out.shape[:2]) + oshape)
     return out
@@ -184,18 +184,18 @@ def push(inp, grid, shape: Optional[List[int]], bound: List[Bound],
         out1 = inp.clone()
 
         # apply sign
-        sign1 = make_sign([torch.jit.annotate(Optional[Tensor], sgn[n])
-                           for sgn, n in zip(signs, nodes)])
+        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
-            out1 *= sign1
+            out1 = out1 * sign1
 
         # out-of-bounds mask
         if mask is not None:
-            out1 *= mask
+            out1 = out1 * mask
 
         # apply weights
         for weight, n in zip(weights, nodes):
-            out1 *= weight[n]
+            out1 = out1 * weight[n]
 
         # accumulate
         out.scatter_add_(-1, idx, out1)
@@ -249,10 +249,10 @@ def grad(inp, grid, bound: List[Bound], spline: List[Spline],
         out0 = inp.gather(-1, idx)
 
         # apply sign
-        sign1 = make_sign([torch.jit.annotate(Optional[Tensor], sgn[n])
-                           for sgn, n in zip(signs, nodes)])
+        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
-            out0 *= sign1
+            out0 = out0 * sign1
 
         for d in range(dim):
             out1 = out0.clone()
@@ -261,16 +261,16 @@ def grad(inp, grid, bound: List[Bound], spline: List[Spline],
                 if d == dd:
                     grad11 = grad1[n]
                     if grad11 is not None:
-                        out1 *= grad11
+                        out1 = out1 * grad11
                 else:
-                    out1 *= weight[n]
+                    out1 = out1 * weight[n]
 
             # accumulate
             out.unbind(-1)[d].add_(out1)
 
     # out-of-bounds mask
     if mask is not None:
-        out *= mask.unsqueeze(-1)
+        out = out * mask.unsqueeze(-1)
 
     out = out.reshape(list(out.shape[:2]) + oshape + list(out.shape[-1:]))
     return out
@@ -322,14 +322,14 @@ def pushgrad(inp, grid, shape: Optional[List[int]], bound: List[Bound],
         out0 = inp.clone()
 
         # apply sign
-        sign1 = make_sign([torch.jit.annotate(Optional[Tensor], sgn[n])
-                           for sgn, n in zip(signs, nodes)])
+        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
-            out0 *= sign1.unsqueeze(-1)
+            out0 = out0 * sign1.unsqueeze(-1)
 
         # out-of-bounds mask
         if mask is not None:
-            out0 *= mask.unsqueeze(-1)
+            out0 = out0 * mask.unsqueeze(-1)
 
         for d in range(dim):
             out1 = out0.unbind(-1)[d].clone()
@@ -338,9 +338,9 @@ def pushgrad(inp, grid, shape: Optional[List[int]], bound: List[Bound],
                 if d == dd:
                     grad11 = grad1[n]
                     if grad11 is not None:
-                        out1 *= grad11
+                        out1 = out1 * grad11
                 else:
-                    out1 *= weight[n]
+                    out1 = out1 * weight[n]
 
             # accumulate
             out.scatter_add_(-1, idx, out1)
@@ -394,10 +394,10 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
         out1 = inp.gather(-1, idx)
 
         # apply sign
-        sign1 = make_sign([torch.jit.annotate(Optional[Tensor], sgn[n])
-                           for sgn, n in zip(signs, nodes)])
+        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
-            out1 *= sign1
+            out1 = out1 * sign1
 
         for d in range(dim):
             # -- diagonal --
@@ -410,7 +410,7 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
                     if hess11 is not None:
                         out1 *= hess11
                 else:
-                    out1 *= weight[n]
+                    out1 = out1 * weight[n]
 
             # accumulate
             out.unbind(-1)[d].unbind(-1)[d].add_(out1)
@@ -424,16 +424,16 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
                     if dd in (d, d2):
                         grad11 = grad1[n]
                         if grad11 is not None:
-                            out1 *= grad11
+                            out1 = out1 * grad11
                     else:
-                        out1 *= weight[n]
+                        out1 = out1 * weight[n]
 
                 # accumulate
                 out.unbind(-1)[d].unbind(-1)[d2].add_(out1)
 
     # out-of-bounds mask
     if mask is not None:
-        out *= mask.unsqueeze(-1)
+        out = out * mask.unsqueeze(-1)
 
     # fill lower triangle
     for d in range(dim):

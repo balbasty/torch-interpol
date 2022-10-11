@@ -150,9 +150,9 @@ def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     out = inp.gather(-1, idx)
     sign = make_sign([signx, signy])
     if sign is not None:
-        out *= sign
+        out = out * sign
     if mask is not None:
-        out *= mask
+        out = mask * mask
     out = out.reshape(out.shape[:2] + oshape)
     return out
 
@@ -198,9 +198,9 @@ def push2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     if sign is not None or mask is not None:
         inp = inp.clone()
     if sign is not None:
-        inp *= sign
+        inp = inp * sign
     if mask is not None:
-        inp *= mask
+        inp = inp * mask
     out.scatter_add_(-1, idx, inp)
 
     out = out.reshape(out.shape[:2] + shape)
@@ -244,9 +244,9 @@ def pull1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     out = inp.gather(-1, idx)
     sign = signx
     if sign is not None:
-        out *= sign
+        out = out * sign
     if mask is not None:
-        out *= mask
+        out = out * mask
     out = out.reshape(out.shape[:2] + oshape)
     return out
 
@@ -291,9 +291,9 @@ def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     if sign is not None or mask is not None:
         inp = inp.clone()
     if sign is not None:
-        inp *= sign
+        inp = inp * sign
     if mask is not None:
-        inp *= mask
+        inp = inp * mask
     out.scatter_add_(-1, idx, inp)
 
     out = out.reshape(out.shape[:2] + shape)

@@ -69,6 +69,28 @@ def list_sum_int(x: List[int]) -> int:
 
 
 @torch.jit.script
+def list_prod_tensor(x: List[Tensor]) -> Tensor:
+    if len(x) == 0:
+        empty: List[int] = []
+        return torch.ones(empty)
+    x0 = x[0]
+    for x1 in x[1:]:
+        x0 = x0 * x1
+    return x0
+
+
+@torch.jit.script
+def list_sum_tensor(x: List[Tensor]) -> Tensor:
+    if len(x) == 0:
+        empty: List[int] = []
+        return torch.ones(empty)
+    x0 = x[0]
+    for x1 in x[1:]:
+        x0 = x0 + x1
+    return x0
+
+
+@torch.jit.script
 def list_reverse_int(x: List[int]) -> List[int]:
     if len(x) == 0:
         return x
@@ -313,14 +335,13 @@ def inbounds_mask_1d(extrapolate: int, gx, nx: int) -> Optional[Tensor]:
 
 @torch.jit.script
 def make_sign(sign: List[Optional[Tensor]]) -> Optional[Tensor]:
-    osign: Optional[Tensor] = None
+    if all([s is None for s in sign]):
+        return None
+    filt_sign: List[Tensor] = []
     for s in sign:
         if s is not None:
-            if osign is None:
-                osign = s
-            else:
-                osign = osign * s
-    return osign
+            filt_sign.append(s)
+    return list_prod_tensor(filt_sign)
 
 
 @torch.jit.script

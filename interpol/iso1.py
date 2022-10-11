@@ -3,12 +3,13 @@ import torch
 from .bounds import Bound
 from .jit_utils import (sub2ind_list, make_sign,
                         inbounds_mask_3d, inbounds_mask_2d, inbounds_mask_1d)
-from typing import List, Optional
+from typing import List, Tuple, Optional
 Tensor = torch.Tensor
 
 
 @torch.jit.script
-def get_weights_and_indices(g, n: int, bound: Bound):
+def get_weights_and_indices(g, n: int, bound: Bound) \
+        -> Tuple[Tensor, Tensor, Tensor, Optional[Tensor], Optional[Tensor]]:
     g0 = g.floor().long()
     g1 = g0 + 1
     sign1 = bound.transform(g1, n)
@@ -60,71 +61,71 @@ def pull3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     out = inp.gather(-1, idx)
     sign = make_sign([signx0, signy0, signz0])
     if sign is not None:
-        out *= sign
-    out *= (1 - gx) * (1 - gy) * (1 - gz)
+        out = out * sign
+    out = out * ((1 - gx) * (1 - gy) * (1 - gz))
     # - corner 001
     idx = sub2ind_list([gx0, gy0, gz1], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx0, signy0, signz1])
     if sign is not None:
-        out1 *= sign
-    out1 *= (1 - gx) * (1 - gy) * gz
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * ((1 - gx) * (1 - gy) * gz)
+    out = out + out1
     # - corner 010
     idx = sub2ind_list([gx0, gy1, gz0], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx0, signy1, signz0])
     if sign is not None:
-        out1 *= sign
-    out1 *= (1 - gx) * gy * (1 - gz)
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * ((1 - gx) * gy * (1 - gz))
+    out = out + out1
     # - corner 011
     idx = sub2ind_list([gx0, gy1, gz1], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx0, signy1, signz1])
     if sign is not None:
-        out1 *= sign
-    out1 *= (1 - gx) * gy * gz
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * ((1 - gx) * gy * gz)
+    out = out + out1
     # - corner 100
     idx = sub2ind_list([gx1, gy0, gz0], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx1, signy0, signz0])
     if sign is not None:
-        out1 *= sign
-    out1 *= gx * (1 - gy) * (1 - gz)
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * (gx * (1 - gy) * (1 - gz))
+    out = out + out1
     # - corner 101
     idx = sub2ind_list([gx1, gy0, gz1], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx1, signy0, signz1])
     if sign is not None:
-        out1 *= sign
-    out1 *= gx * (1 - gy) * gz
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * (gx * (1 - gy) * gz)
+    out = out + out1
     # - corner 110
     idx = sub2ind_list([gx1, gy1, gz0], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx1, signy1, signz0])
     if sign is not None:
-        out1 *= sign
-    out1 *= gx * gy * (1 - gz)
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * (gx * gy * (1 - gz))
+    out = out + out1
     # - corner 111
     idx = sub2ind_list([gx1, gy1, gz1], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx1, signy1, signz1])
     if sign is not None:
-        out1 *= sign
-    out1 *= gx * gy * gz
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * (gx * gy * gz)
+    out = out + out1
 
     if mask is not None:
         out *= mask
@@ -177,10 +178,10 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = make_sign([signx0, signy0, signz0])
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= (1 - gx) * (1 - gy) * (1 - gz)
+        out1 = out1 * mask
+    out1 = out1 * ((1 - gx) * (1 - gy) * (1 - gz))
     out.scatter_add_(-1, idx, out1)
     # - corner 001
     idx = sub2ind_list([gx0, gy0, gz1], shape)
@@ -188,10 +189,10 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = make_sign([signx0, signy0, signz1])
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= (1 - gx) * (1 - gy) * gz
+        out1 = out1 * mask
+    out1 = out1 * ((1 - gx) * (1 - gy) * gz)
     out.scatter_add_(-1, idx, out1)
     # - corner 010
     idx = sub2ind_list([gx0, gy1, gz0], shape)
@@ -199,10 +200,10 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = make_sign([signx0, signy1, signz0])
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= (1 - gx) * gy * (1 - gz)
+        out1 = out1 * mask
+    out1 = out1 * ((1 - gx) * gy * (1 - gz))
     out.scatter_add_(-1, idx, out1)
     # - corner 011
     idx = sub2ind_list([gx0, gy1, gz1], shape)
@@ -210,10 +211,10 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = make_sign([signx0, signy1, signz1])
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= (1 - gx) * gy * gz
+        out1 = out1 * mask
+    out1 = out1 * ((1 - gx) * gy * gz)
     out.scatter_add_(-1, idx, out1)
     # - corner 100
     idx = sub2ind_list([gx1, gy0, gz0], shape)
@@ -221,10 +222,10 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = make_sign([signx1, signy0, signz0])
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= gx * (1 - gy) * (1 - gz)
+        out1 = out1 * mask
+    out1 = out1 * (gx * (1 - gy) * (1 - gz))
     out.scatter_add_(-1, idx, out1)
     # - corner 101
     idx = sub2ind_list([gx1, gy0, gz1], shape)
@@ -232,10 +233,10 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = make_sign([signx1, signy0, signz1])
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= gx * (1 - gy) * gz
+        out1 = out1 * mask
+    out1 = out1 * (gx * (1 - gy) * gz)
     out.scatter_add_(-1, idx, out1)
     # - corner 110
     idx = sub2ind_list([gx1, gy1, gz0], shape)
@@ -243,10 +244,10 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = make_sign([signx1, signy1, signz0])
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= gx * gy * (1 - gz)
+        out1 = out1 * mask
+    out1 = out1 * (gx * gy * (1 - gz))
     out.scatter_add_(-1, idx, out1)
     # - corner 111
     idx = sub2ind_list([gx1, gy1, gz1], shape)
@@ -254,10 +255,10 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = make_sign([signx1, signy1, signz1])
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= gx * gy * gz
+        out1 = out1 * mask
+    out1 = out1 * (gx * gy * gz)
     out.scatter_add_(-1, idx, out1)
 
     out = out.reshape(list(out.shape[:2]) + shape)
@@ -714,35 +715,35 @@ def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     out = inp.gather(-1, idx)
     sign = make_sign([signx0, signy0])
     if sign is not None:
-        out *= sign
-    out *= (1 - gx) * (1 - gy)
+        out = out * sign
+    out = out * ((1 - gx) * (1 - gy))
     # - corner 01
     idx = sub2ind_list([gx0, gy1], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx0, signy1])
     if sign is not None:
-        out1 *= sign
-    out1 *= (1 - gx) * gy
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * ((1 - gx) * gy)
+    out = out + out1
     # - corner 10
     idx = sub2ind_list([gx1, gy0], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx1, signy0])
     if sign is not None:
-        out1 *= sign
-    out1 *= gx * (1 - gy)
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * (gx * (1 - gy))
+    out = out + out1
     # - corner 11
     idx = sub2ind_list([gx1, gy1], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = make_sign([signx1, signy1])
     if sign is not None:
-        out1 *= sign
-    out1 *= gx * gy
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * (gx * gy)
+    out = out + out1
 
     if mask is not None:
         out *= mask
@@ -1124,17 +1125,17 @@ def pull1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     out = inp.gather(-1, idx)
     sign = signx0
     if sign is not None:
-        out *= sign
-    out *= (1 - gx)
+        out = out * sign
+    out = out * (1 - gx)
     # - corner 1
     idx = gx1
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.gather(-1, idx)
     sign = signx1
     if sign is not None:
-        out1 *= sign
-    out1 *= gx
-    out += out1
+        out1 = out1 * sign
+    out1 = out1 * gx
+    out = out + out1
 
     if mask is not None:
         out *= mask
@@ -1185,10 +1186,10 @@ def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = signx0
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= (1 - gx)
+        out1 = out1 * mask
+    out1 = out1 * (1 - gx)
     out.scatter_add_(-1, idx, out1)
     # - corner 1
     idx = gx1
@@ -1196,10 +1197,10 @@ def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     out1 = inp.clone()
     sign = signx1
     if sign is not None:
-        out1 *= sign
+        out1 = out1 * sign
     if mask is not None:
-        out1 *= mask
-    out1 *= gx
+        out1 = out1 * mask
+    out1 = out1 * gx
     out.scatter_add_(-1, idx, out1)
 
     out = out.reshape(list(out.shape[:2]) + shape)
