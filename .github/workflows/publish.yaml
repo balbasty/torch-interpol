@@ -26,11 +26,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Test with pytest
+        env:
+          PYTORCH_VERSION: ${{ matrix.pytorch-version }}
         run: |
-          pip install torch==${{ matrix.pytorch-version }}
+          pip install "torch==${PYTORCH_VERSION}"
           pip install .
           pytest pytest --pyargs interpol
+
   publish:
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
