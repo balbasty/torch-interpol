@@ -31,7 +31,6 @@ jobs:
           pip install torch==${{ matrix.pytorch-version }}
           pip install .
           pytest pytest --pyargs interpol
-
   publish:
     needs: test
     runs-on: ubuntu-latest
