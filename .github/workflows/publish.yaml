@@ -1,0 +1,65 @@
+# https://github.com/wtgee/panoptes-utils/blob/4af0b8702dc65d3a02e8e5cf9d99f18bf07f9cf7/.github/workflows/pythonpublish.yaml
+name: Upload Python Package to PyPi
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python-version: 3.6
+            pytorch-version: 1.4
+          - python-version: 3.6
+            pytorch-version: 1.8
+          - python-version: 3.9
+            pytorch-version: 1.8
+          - python-version: 3.9
+            pytorch-version: 1.11
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Test with pytest
+        run: |
+          pip install torch==${{ matrix.pytorch-version }}
+          pip install .
+          pytest pytest --pyargs interpol
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, 3.10]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies for building package
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel twine
+    - name: Build a binary wheel and a source tarball
+      run: |
+        python setup.py sdist bdist_wheel
+    - name: Publish distribution 📦 to Test PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.test_pypi_password }}
+        repository_url: https://test.pypi.org/legacy/
+#    - name: Publish distribution 📦 to PyPI
+#      if: startsWith(github.event.ref, 'refs/tags')
+#      uses: pypa/gh-action-pypi-publish@master
+#      with:
+#        password: ${{ secrets.pypi_password }}
