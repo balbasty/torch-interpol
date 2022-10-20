@@ -287,7 +287,8 @@ def inbounds_mask_1d(extrapolate: int, gx, nx: int) -> Optional[Tensor]:
 
 @torch.jit.script
 def make_sign(sign: List[Optional[Tensor]]) -> Optional[Tensor]:
-    if all([s is None for s in sign]):
+    is_none : List[bool] = [s is None for s in sign]
+    if list_all(is_none):
         return None
     filt_sign: List[Tensor] = []
     for s in sign:
