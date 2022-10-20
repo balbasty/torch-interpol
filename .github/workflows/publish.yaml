@@ -1,4 +1,3 @@
-# https://github.com/wtgee/panoptes-utils/blob/4af0b8702dc65d3a02e8e5cf9d99f18bf07f9cf7/.github/workflows/pythonpublish.yaml
 name: Upload Python Package to PyPi
 
 on: [ workflow_dispatch, push ]
@@ -60,9 +59,3 @@ jobs:
         with:
           password: ${{ secrets.test_pypi_password }}
           repository_url: https://test.pypi.org/legacy/
-
-#    - name: Publish distribution 📦 to PyPI
-#      if: startsWith(github.event.ref, 'refs/tags')
-#      uses: pypa/gh-action-pypi-publish@master
-#      with:
-#        password: ${{ secrets.pypi_password }}
