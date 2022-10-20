@@ -2,6 +2,11 @@ name: Upload Python Package to PyPi
 
 on:
   workflow_dispatch:
+    inputs:
+      foo:
+        description: 'Foo'
+        required: false
+        default: 'foo'
   push:
     branches: [ main ]
 
