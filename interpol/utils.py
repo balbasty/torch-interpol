@@ -3,7 +3,7 @@ import torch
 
 def fake_decorator(*a, **k):
     if len(a) == 1 and not k:
-        return a
+        return a[0]
     else:
         return fake_decorator
 

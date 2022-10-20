@@ -2,12 +2,20 @@ import torch
 from torch.autograd import gradcheck
 from interpol import grid_pull, grid_push, grid_count, grid_grad, add_identity_grid_
 import pytest
+import inspect
 
 # global parameters
 dtype = torch.double        # data type (double advised to check gradients)
 shape1 = 3                  # size along each dimension
 extrapolate = True
-torch.use_deterministic_algorithms(True)
+
+if hasattr(torch, 'use_deterministic_algorithms'):
+    torch.use_deterministic_algorithms(True)
+kwargs = dict(rtol=1., raise_exception=True)
+if 'check_undefined_grad' in inspect.signature(gradcheck).parameters:
+    kwargs['check_undefined_grad'] = False
+if 'nondet_tol' in inspect.signature(gradcheck).parameters:
+    kwargs['nondet_tol'] = 1e-3
 
 # parameters
 devices = [('cpu', 1)]
@@ -67,8 +75,7 @@ def test_gradcheck_grad(device, dim, bound, interpolation):
     vol.requires_grad = True
     grid.requires_grad = True
     assert gradcheck(grid_grad, (vol, grid, interpolation, bound, extrapolate),
-                     rtol=1., raise_exception=True, check_undefined_grad=False,
-                     nondet_tol=1e-3)
+                     **kwargs)
 
 
 @pytest.mark.parametrize("device", devices)
@@ -84,7 +91,7 @@ def test_gradcheck_pull(device, dim, bound, interpolation):
     vol.requires_grad = True
     grid.requires_grad = True
     assert gradcheck(grid_pull, (vol, grid, interpolation, bound, extrapolate),
-                     rtol=1., raise_exception=True, check_undefined_grad=False)
+                     **kwargs)
 
 
 @pytest.mark.parametrize("device", devices)
@@ -100,7 +107,7 @@ def test_gradcheck_push(device, dim, bound, interpolation):
     vol.requires_grad = True
     grid.requires_grad = True
     assert gradcheck(grid_push, (vol, grid, shape, interpolation, bound, extrapolate),
-                     rtol=1., raise_exception=True, check_undefined_grad=False)
+                     **kwargs)
 
 
 @pytest.mark.parametrize("device", devices)
@@ -115,4 +122,4 @@ def test_gradcheck_count(device, dim, bound, interpolation):
     _, grid = make_data(shape, device, dtype)
     grid.requires_grad = True
     assert gradcheck(grid_count, (grid, shape, interpolation, bound, extrapolate),
-                     rtol=1., raise_exception=True, check_undefined_grad=False)
+                     **kwargs)
