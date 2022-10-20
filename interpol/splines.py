@@ -152,7 +152,7 @@ class Spline:
         x = x.abs()
         if self.order == 2:
             one = torch.ones([1], dtype=x.dtype, device=x.device)
-            return torch.where(x < 0.5, one, -2 * one)
+            return torch.where(x < 0.5, -2 * one, one)
         if self.order == 3:
             return torch.where(x < 1, 3. * x - 2., 2. - x)
         if self.order == 4:

@@ -2,7 +2,8 @@
 import torch
 import os
 from typing import List, Tuple, Optional
-Tensor = torch.Tensor
+from .utils import torch_version
+from torch import Tensor
 
 
 @torch.jit.script
@@ -126,55 +127,6 @@ def movedim1(x, source: int, destination: int):
     permutation = permutation[:source] + permutation[source+1:]
     permutation = permutation[:destination] + [source] + permutation[destination:]
     return x.permute(permutation)
-
-
-def compare_versions(version1: List[int], mode: str, version2: List[int]) -> bool:
-    for v1, v2 in zip(version1, version2):
-        if mode in ('gt', '>'):
-            if v1 > v2:
-                return True
-            elif v1 < v2:
-                return False
-        elif mode in ('ge', '>='):
-            if v1 > v2:
-                return True
-            elif v1 < v2:
-                return False
-        elif mode in ('lt', '<'):
-            if v1 < v2:
-                return True
-            elif v1 > v2:
-                return False
-        elif mode in ('le', '<='):
-            if v1 < v2:
-                return True
-            elif v1 > v2:
-                return False
-    if mode in ('gt', 'lt', '>', '<'):
-        return False
-    else:
-        return True
-
-
-def torch_version(mode: str, version: List[int]) -> bool:
-    """Check torch version
-
-    Parameters
-    ----------
-    mode : {'<', '<=', '>', '>='}
-    version : list[int]
-
-    Returns
-    -------
-    True if "torch.version <mode> version"
-
-    """
-    current_version = torch.__version__.split('+')[0]
-    current_version = current_version.split('.')
-    current_version = [int(current_version[0]),
-                       int(current_version[1]),
-                       int(current_version[2])]
-    return compare_versions(current_version, mode, version)
 
 
 @torch.jit.script
@@ -430,10 +382,37 @@ def dot_multi(x, y, dim: List[int], keepdim: bool = False):
     return dt
 
 
+if torch_version('>=', (1, 10)):
+    @torch.jit.script
+    def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
+        return torch.meshgrid(x, indexing='ij')
+    @torch.jit.script
+    def meshgrid_xy(x: List[torch.Tensor]) -> List[torch.Tensor]:
+        return torch.meshgrid(x, indexing='xy')
+else:
+    @torch.jit.script
+    def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
+        return torch.meshgrid(x)
+    @torch.jit.script
+    def meshgrid_xy(x: List[torch.Tensor]) -> List[torch.Tensor]:
+        grid = torch.meshgrid(x)
+        if len(grid) > 1:
+            grid[0] = grid[0].transpose(0, 1)
+            grid[1] = grid[1].transpose(0, 1)
+        return grid
+
+
 # cartesian_prod takes multiple inout tensors as input in eager mode
 # but takes a list of tensor in jit mode. This is a helper that works
 # in both cases.
 if not int(os.environ.get('PYTORCH_JIT', '1')):
     cartesian_prod = lambda x: torch.cartesian_prod(*x)
+    meshgrid_ij_list = meshgrid_ij
+    meshgrid_xy_list = meshgrid_xy
+    meshgrid_ij = lambda x: meshgrid_ij_list(*x)
+    meshgrid_xy = lambda x: meshgrid_xy_list(*x)
 else:
     cartesian_prod = torch.cartesian_prod
+
+
+meshgrid = meshgrid_ij

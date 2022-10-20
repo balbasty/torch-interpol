@@ -300,7 +300,7 @@ def grid_count_backward(grad, grid, bound: List[int],
 # @torch.jit.script
 def grid_grad_backward(grad, inp, grid, bound: List[int],
                        interpolation: List[int], extrapolate: int) \
-        -> Tuple[Optional[Tensor], Optional[Tensor], ]:
+        -> Tuple[Optional[Tensor], Optional[Tensor]]:
     """
     grad: (B, C, *spatial_out, D) tensor
     inp: (B, C, *spatial_in) tensor

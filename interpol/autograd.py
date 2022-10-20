@@ -53,12 +53,16 @@ def bound_to_nitorch(bound, as_type='str'):
             obound.append('dst2')
         elif b in ('dst1', 'antimirror', BoundType.dst1):
             obound.append('dst1')
+        elif isinstance(b, int):
+            obound.append(b)
         else:
             raise ValueError(f'Unknown boundary condition {b}')
-    if as_type in ('enum', 'int', int):
-        obound = list(map(lambda b: getattr(BoundType, b), obound))
-        if as_type in ('int', int):
-            obound = [b.value for b in obound]
+    obound = list(map(lambda b: getattr(BoundType, b) if isinstance(b, str)
+                      else BoundType(b), obound))
+    if as_type in ('int', int):
+        obound = [b.value for b in obound]
+    if as_type in ('str', str):
+        obound = [b.name for b in obound]
     if issubclass(intype, (list, tuple)):
         obound = intype(obound)
     else:

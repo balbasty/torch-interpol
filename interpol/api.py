@@ -1,7 +1,7 @@
 """High level interpolation API"""
 import torch
 from .utils import expanded_shape, matvec
-from .jit_utils import movedim1
+from .jit_utils import movedim1, meshgrid
 from .autograd import (GridPull, GridPush, GridCount, GridGrad,
                        SplineCoeff, SplineCoeffND)
 
@@ -443,8 +443,7 @@ def identity_grid(shape, dtype=None, device=None):
     """
     mesh1d = [torch.arange(float(s), dtype=dtype, device=device)
               for s in shape]
-    grid = torch.meshgrid(*mesh1d)
-    grid = torch.stack(grid, dim=-1)
+    grid = torch.stack(meshgrid(mesh1d), dim=-1)
     return grid
 
 
@@ -467,7 +466,7 @@ def add_identity_grid_(disp):
     spatial = disp.shape[-dim-1:-1]
     mesh1d = [torch.arange(s, dtype=disp.dtype, device=disp.device)
               for s in spatial]
-    grid = torch.meshgrid(mesh1d)
+    grid = meshgrid(mesh1d)
     disp = movedim1(disp, -1, 0)
     for i, grid1 in enumerate(grid):
         disp[i].add_(grid1)
