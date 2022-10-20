@@ -372,8 +372,8 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
     mask = inbounds_mask(extrapolate, grid, shape)
 
     # precompute weights along each dimension
-    weights, grads, hesss, coords, signs = get_weights(grid, bound, spline, shape,
-                                                       grad=True, hess=True)
+    weights, grads, hesss, coords, signs \
+        = get_weights(grid, bound, spline, shape, grad=True, hess=True)
 
     # initialize
     out = torch.zeros([batch, channel, grid.shape[1], dim, dim],
@@ -391,16 +391,17 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
         idx = [c[n] for c, n in zip(coords, nodes)]
         idx = sub2ind_list(idx, shape)
         idx = idx.expand([batch, channel, idx.shape[-1]])
-        out1 = inp.gather(-1, idx)
+        out0 = inp.gather(-1, idx)
 
         # apply sign
         sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
         sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
-            out1 = out1 * sign1
+            out0 = out0 * sign1
 
         for d in range(dim):
             # -- diagonal --
+            out1 = out0.clone()
 
             # apply weights
             for dd, (weight, hess1, n) \
@@ -408,7 +409,7 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
                 if d == dd:
                     hess11 = hess1[n]
                     if hess11 is not None:
-                        out1 *= hess11
+                        out1 = out1 * hess11
                 else:
                     out1 = out1 * weight[n]
 
@@ -417,10 +418,11 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
 
             # -- off diagonal --
             for d2 in range(d+1, dim):
+                out1 = out0.clone()
 
                 # apply weights
-                for dd, (weight, grad1, hess1, n) \
-                        in enumerate(zip(weights, grads, hesss, nodes)):
+                for dd, (weight, grad1, n) \
+                        in enumerate(zip(weights, grads, nodes)):
                     if dd in (d, d2):
                         grad11 = grad1[n]
                         if grad11 is not None:
@@ -433,7 +435,7 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
 
     # out-of-bounds mask
     if mask is not None:
-        out = out * mask.unsqueeze(-1)
+        out = out * mask.unsqueeze(-1).unsqueeze(-1)
 
     # fill lower triangle
     for d in range(dim):

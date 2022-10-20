@@ -1,7 +1,8 @@
 # https://github.com/wtgee/panoptes-utils/blob/4af0b8702dc65d3a02e8e5cf9d99f18bf07f9cf7/.github/workflows/pythonpublish.yaml
 name: Upload Python Package to PyPi
 
-on: workflow_dispatch
+on: [ workflow_dispatch, push ]
+    branches: [ main ]
 
 jobs:
   test:
