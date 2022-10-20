@@ -187,7 +187,7 @@ class Spline:
             h_mid_up = (x * (x * (x * (x * (x * (7./120.) - 5./6.) + 14./3.)
                         - 38./3.) + 49./3.) - 23./3.)
             h_up = - (x * (x * (x * (x * (x/120. - 1./6.) + 4./3.) - 16./3.)
-                      + 32.) - 128./15.)
+                      + 32./3.) - 128./15.)
             return torch.where(x < 1, h_low,
                                torch.where(x < 2, h_mid_low,
                                            torch.where(x < 3, h_mid_up,
