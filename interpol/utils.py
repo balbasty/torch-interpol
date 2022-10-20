@@ -1,6 +1,13 @@
 import torch
 
 
+def fake_decorator(*a, **k):
+    if len(a) == 1 and not k:
+        return a
+    else:
+        return fake_decorator
+
+
 def make_list(x, n=None, **kwargs):
     """Ensure that the input  is a list (of a given size)
 

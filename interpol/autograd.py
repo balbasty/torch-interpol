@@ -1,6 +1,5 @@
 """AutoGrad version of pull/push/count/grad"""
 import torch
-from torch.cuda.amp import custom_fwd, custom_bwd
 from .coeff import spline_coeff_nd, spline_coeff
 from .bounds import BoundType
 from .splines import InterpolationType
@@ -9,6 +8,11 @@ from .pushpull import (
     grid_push, grid_push_backward,
     grid_count, grid_count_backward,
     grid_grad, grid_grad_backward)
+from .utils import fake_decorator
+try:
+    from torch.cuda.amp import custom_fwd, custom_bwd
+except (ModuleNotFoundError, ImportError):
+    custom_fwd = custom_bwd = fake_decorator
 
 
 def make_list(x):
