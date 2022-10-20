@@ -36,7 +36,7 @@ jobs:
         env:
           PYTORCH_VERSION: ${{ matrix.pytorch-version }}
         run: |
-          pip install "torch==${PYTORCH_VERSION}"
+          pip install "torch==${PYTORCH_VERSION}" pytest
           pip install .
           pytest pytest --pyargs interpol
 
