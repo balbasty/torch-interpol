@@ -9,12 +9,14 @@ inputs:
     description: 'Publish'
     required: false
     default: 'test+pypi'
-    type: choice
-    options:
-      - 'pypi'
-      - 'test'
-      - 'test+pypi'
-      - 'auto'        # alias for test+pypi
+    # {pypi, test, test+pypi, auto}
+    # auto is an alias for test+pypi
+  password-pypi:
+    description: 'PyPi password'
+    required: true
+  password-test:
+    description: 'Test PyPi password'
+    required: true
 runs:
   using: "composite"
   steps:
@@ -41,7 +43,7 @@ runs:
         inputs.publish == 'auto'
       uses: pypa/gh-action-pypi-publish@master
       with:
-        password: ${{ secrets.test_pypi_password }}
+        password: ${{ inputs.password-test }}
         repository_url: https://test.pypi.org/legacy/
     - name: Publish distribution 📦 to PyPI
       if: |
@@ -50,5 +52,5 @@ runs:
         inputs.publish == 'auto'
       uses: pypa/gh-action-pypi-publish@master
       with:
-        password: ${{ secrets.pypi_password }}
+        password: ${{ inputs.password-pypi }}
         repository_url: https://pypi.org

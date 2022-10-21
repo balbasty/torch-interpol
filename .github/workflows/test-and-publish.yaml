@@ -25,6 +25,7 @@ on:
           - 'needs'
 #  push:
 #    branches: [ main ]
+#  release
 
 jobs:
   test:
@@ -80,3 +81,5 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           publish: ${{ inputs.publish }}
+          password-pypi: ${{ secrets.pypi_token }}
+          password-test: ${{ secrets.test_pypi_token }}
