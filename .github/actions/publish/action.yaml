@@ -45,7 +45,7 @@ runs:
         inputs.publish == 'test' || 
         inputs.publish == 'test+pypi' || 
         inputs.publish == 'auto'
-      uses: pypa/gh-action-pypi-publish@v1
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ inputs.password-test }}
         repository_url: https://test.pypi.org/legacy/
@@ -54,7 +54,7 @@ runs:
         inputs.publish == 'pypi' || 
         inputs.publish == 'test+pypi' || 
         inputs.publish == 'auto'
-      uses: pypa/gh-action-pypi-publish@v1
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ inputs.password-pypi }}
         repository_url: https://upload.pypi.org/legacy/
