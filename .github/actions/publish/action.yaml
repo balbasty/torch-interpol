@@ -27,6 +27,7 @@ runs:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
+        ref: ${{ inputs.tag }}
     - name: Setup Python ${{ inputs.python-version }}
       uses: actions/setup-python@v1
       with:
