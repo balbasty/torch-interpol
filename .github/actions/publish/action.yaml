@@ -29,9 +29,11 @@ runs:
       run: |
         python -m pip install --upgrade pip
         pip install setuptools wheel twine
+      shell: bash
     - name: Build a binary wheel and a source tarball
       run: |
         python setup.py sdist bdist_wheel
+      shell: bash
     - name: Publish distribution 📦 to Test PyPI
       if: |
         inputs.publish == 'test' || 
