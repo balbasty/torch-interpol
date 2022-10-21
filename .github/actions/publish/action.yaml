@@ -5,6 +5,10 @@ inputs:
     description: 'Python version'
     required: false
     default: '3.6'
+  tag:
+    description: 'Commit / Branch / Tag / SHA to checkout'
+    required: false
+    default: ''
   publish:
     description: 'Publish'
     required: false
@@ -41,7 +45,7 @@ runs:
         inputs.publish == 'test' || 
         inputs.publish == 'test+pypi' || 
         inputs.publish == 'auto'
-      uses: pypa/gh-action-pypi-publish@master
+      uses: pypa/gh-action-pypi-publish@v1
       with:
         password: ${{ inputs.password-test }}
         repository_url: https://test.pypi.org/legacy/
@@ -50,7 +54,7 @@ runs:
         inputs.publish == 'pypi' || 
         inputs.publish == 'test+pypi' || 
         inputs.publish == 'auto'
-      uses: pypa/gh-action-pypi-publish@master
+      uses: pypa/gh-action-pypi-publish@v1
       with:
         password: ${{ inputs.password-pypi }}
-        repository_url: https://pypi.org
+        repository_url: https://upload.pypi.org/legacy/

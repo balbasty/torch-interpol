@@ -1,6 +1,10 @@
 name: Run tests
 description: Run tests
 inputs:
+  tag:
+    description: 'Commit / Branch / Tag / SHA to checkout'
+    required: false
+    default: ''
   python-version:
     description: 'Python version'
     required: true
@@ -13,6 +17,8 @@ runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v2
+      with:
+        ref: ${{ inputs.tag }}
     - name: Setup Python ${{ inputs.python-version }}
       uses: actions/setup-python@v1
       with:
