@@ -3,15 +3,32 @@ name: Upload Python Package to PyPi
 on:
   workflow_dispatch:
     inputs:
-      foo:
-        description: 'Foo'
+      publish:
+        description: 'Publish'
         required: false
-        default: 'foo'
-  push:
-    branches: [ main ]
+        default: 'auto'
+        type: choice
+        options:
+          - 'auto'
+          - 'none'
+          - 'pypi'
+          - 'test'
+          - 'test+pypi'
+      test:
+        description: 'Run tests'
+        required: false
+        default: 'yes'
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+          - 'needs'
+#  push:
+#    branches: [ main ]
 
 jobs:
   test:
+    if: inputs.test != 'no'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -19,8 +36,6 @@ jobs:
           - python-version: 3.6
             pytorch-version: 1.4
           - python-version: 3.6
-            pytorch-version: 1.8
-          - python-version: 3.9
             pytorch-version: 1.8
           - python-version: 3.9
             pytorch-version: 1.11
@@ -42,6 +57,10 @@ jobs:
           pytest pytest --pyargs interpol
 
   publish:
+    if: |
+      inputs.publish != 'none' 
+      && (inputs.publish != 'auto' || (github.event_name == 'push' && 
+                                       startsWith(github.ref, 'refs/tags')))
     needs: test
     runs-on: ubuntu-latest
     strategy:
@@ -63,6 +82,10 @@ jobs:
         run: |
           python setup.py sdist bdist_wheel
       - name: Publish distribution 📦 to Test PyPI
+        if: |
+          inputs.publish == 'test' || 
+          inputs.publish == 'test+pypi' || 
+          inputs.publish == 'auto'
         uses: pypa/gh-action-pypi-publish@master
         with:
           password: ${{ secrets.test_pypi_password }}
