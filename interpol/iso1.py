@@ -1313,7 +1313,7 @@ def pushgrad1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     idx = gx1
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out1 = inp.clone()
-    sign = signx0
+    sign = signx1
     if sign is not None:
         out1 *= sign.unsqueeze(-1)
     if mask is not None:
