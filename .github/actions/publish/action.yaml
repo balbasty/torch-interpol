@@ -3,7 +3,7 @@ description: Publish to PyPi
 inputs:
   python-version:
     description: 'Python version'
-    required: true
+    required: false
     default: '3.6'
   publish:
     description: 'Publish'
