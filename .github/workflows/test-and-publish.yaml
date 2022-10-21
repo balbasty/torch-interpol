@@ -1,0 +1,79 @@
+name: Test package and publish to PyPi
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - 'auto'
+          - 'none'
+          - 'pypi'
+          - 'test'
+          - 'test+pypi'
+      test:
+        description: 'Run tests'
+        required: false
+        default: 'needs'
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+          - 'needs'
+#  push:
+#    branches: [ main ]
+
+jobs:
+  test:
+    if: inputs.test != 'no'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python-version: 3.6
+            pytorch-version: 1.4
+          - python-version: 3.6
+            pytorch-version: 1.8
+          - python-version: 3.9
+            pytorch-version: 1.11
+    steps:
+      - uses: ./.github/actions/test
+        with:
+          python-version: ${{ matrix.python-version }}
+          pytorch-version: ${{ matrix.pytorch-version }}
+
+  publish:
+    if: |
+      input.test == 'needs' && 
+      inputs.publish != 'none' && 
+      (inputs.publish != 'auto' || (github.event_name == 'push' && 
+                                    startsWith(github.ref, 'refs/tags')))
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, 3.10]
+    steps:
+      - uses: ./.github/actions/publish
+        with:
+          python-version: ${{ matrix.python-version }}
+          publish: ${{ inputs.publish }}
+
+  publish-only:
+    if: |
+      input.test != 'needs'  && 
+      inputs.publish != 'none' &&
+      (inputs.publish != 'auto' || (github.event_name == 'push' && 
+                                    startsWith(github.ref, 'refs/tags')))
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, 3.10]
+    steps:
+      - uses: ./.github/actions/publish
+        with:
+          python-version: ${{ matrix.python-version }}
+          publish: ${{ inputs.publish }}

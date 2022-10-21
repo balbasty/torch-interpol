@@ -1,0 +1,27 @@
+name: Run tests
+description: Run tests
+inputs:
+  python-version:
+    description: 'Python version'
+    required: true
+    default: '3.6'
+  pytorch-version:
+    description: 'PyTorch version'
+    required: true
+    default: '1.8'
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v2
+    - name: Setup Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Test with pytest
+      env:
+        PYTORCH_VERSION: ${{ inputs.pytorch-version }}
+      run: |
+        pip install "torch==${PYTORCH_VERSION}" pytest
+        [ "${PYTORCH_VERSION}" == "1.4" ] && pip install numpy
+        pip install .
+        pytest pytest --pyargs interpol
