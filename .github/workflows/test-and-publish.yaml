@@ -3,11 +3,11 @@ name: Test package and publish to PyPi
 on:
   workflow_dispatch:
     inputs:
+      tag:
+        description: 'Commit / Branch / Tag / SHA to checkout'
+        required: false
+        default: ''
       publish:
-        tag:
-          description: 'Commit / Branch / Tag / SHA to checkout'
-          required: false
-          default: ''
         description: 'Publish'
         required: false
         default: 'auto'
