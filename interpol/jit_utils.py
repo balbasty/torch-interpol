@@ -244,7 +244,7 @@ def inbounds_mask_3d(extrapolate: int, gx, gy, gz, nx: int, ny: int, nz: int) \
     # mask of inbounds voxels
     mask: Optional[Tensor] = None
     if extrapolate in (0, 2):  # no / hist
-        tiny = 1e-5
+        tiny = 5e-2
         threshold = tiny
         if extrapolate == 2:
             threshold = 0.5 + tiny
@@ -261,7 +261,7 @@ def inbounds_mask_2d(extrapolate: int, gx, gy, nx: int, ny: int) \
     # mask of inbounds voxels
     mask: Optional[Tensor] = None
     if extrapolate in (0, 2):  # no / hist
-        tiny = 1e-5
+        tiny = 5e-2
         threshold = tiny
         if extrapolate == 2:
             threshold = 0.5 + tiny
@@ -276,7 +276,7 @@ def inbounds_mask_1d(extrapolate: int, gx, nx: int) -> Optional[Tensor]:
     # mask of inbounds voxels
     mask: Optional[Tensor] = None
     if extrapolate in (0, 2):  # no / hist
-        tiny = 1e-5
+        tiny = 5e-2
         threshold = tiny
         if extrapolate == 2:
             threshold = 0.5 + tiny
