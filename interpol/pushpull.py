@@ -117,10 +117,11 @@ def grid_count(grid, shape: Optional[List[int]], bound: List[int],
     bound = pad_list_int(bound, dim)
     interpolation = pad_list_int(interpolation, dim)
     bound_fn = make_bound(bound)
+    gshape = list(grid.shape[-dim-1:-1])
     if shape is None:
-        shape = grid.shape[-dim-1:-1]
+        shape = gshape
     inp = torch.ones([], dtype=grid.dtype, device=grid.device)
-    inp = inp.expand([len(grid), 1] + list(shape))
+    inp = inp.expand([len(grid), 1] + gshape)
     is_iso1 = list_all([order == 1 for order in interpolation])
     if is_iso1:
         if dim == 3:
