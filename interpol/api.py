@@ -280,7 +280,7 @@ def grid_count(grid, shape=None, interpolation='linear', bound='zero',
 
     """
     if backend.jitfields and jitfields.available:
-        return jitfields.grid_count(grid, interpolation, bound, extrapolate)
+        return jitfields.grid_count(grid, shape, interpolation, bound, extrapolate)
 
     grid, shape_info = _preproc(grid)
     out = GridCount.apply(grid, shape, interpolation, bound, extrapolate)
