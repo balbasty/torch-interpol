@@ -2,8 +2,11 @@
 Resize functions (equivalent to scipy's zoom, pytorch's interpolate)
 based on grid_pull.
 """
+__all__ = ['resize']
+
 from .api import grid_pull
 from .utils import make_list, meshgrid_ij
+from . import backend, jitfields
 import torch
 
 
@@ -60,12 +63,16 @@ def resize(image, factor=None, shape=None, anchor='c',
         Resized image
 
     """
+    if backend.jitfields and jitfields.available:
+        return jitfields.resize(image, factor, shape, anchor,
+                                interpolation, prefilter, **kwargs)
+
     factor = make_list(factor) if factor else []
     shape = make_list(shape) if shape else []
     anchor = make_list(anchor)
     nb_dim = max(len(factor), len(shape), len(anchor)) or (image.dim() - 2)
     anchor = [a[0].lower() for a in make_list(anchor, nb_dim)]
-    backend = dict(dtype=image.dtype, device=image.device)
+    bck = dict(dtype=image.dtype, device=image.device)
 
     # compute output shape
     inshape = image.shape[-nb_dim:]
@@ -85,19 +92,19 @@ def resize(image, factor=None, shape=None, anchor='c',
     lin = []
     for anch, f, inshp, outshp in zip(anchor, factor, inshape, shape):
         if anch == 'c':    # centers
-            lin.append(torch.linspace(0, inshp - 1, outshp, **backend))
+            lin.append(torch.linspace(0, inshp - 1, outshp, **bck))
         elif anch == 'e':  # edges
             scale = inshp / outshp
             shift = 0.5 * (scale - 1)
-            lin.append(torch.arange(0., outshp, **backend) * scale + shift)
+            lin.append(torch.arange(0., outshp, **bck) * scale + shift)
         elif anch == 'f':  # first voxel
             # scale = 1/f
             # shift = 0
-            lin.append(torch.arange(0., outshp, **backend) / f)
+            lin.append(torch.arange(0., outshp, **bck) / f)
         elif anch == 'l':  # last voxel
             # scale = 1/f
             shift = (inshp - 1) - (outshp - 1) / f
-            lin.append(torch.arange(0., outshp, **backend) / f + shift)
+            lin.append(torch.arange(0., outshp, **bck) / f + shift)
         else:
             raise ValueError('Unknown anchor {}'.format(anch))
 

@@ -1,9 +1,15 @@
 """High level interpolation API"""
+
+__all__ = ['grid_pull', 'grid_push', 'grid_count', 'grid_grad',
+           'spline_coeff', 'spline_coeff_nd',
+           'identity_grid', 'add_identity_grid', 'add_identity_grid_']
+
 import torch
 from .utils import expanded_shape, matvec
 from .jit_utils import movedim1, meshgrid
 from .autograd import (GridPull, GridPush, GridCount, GridGrad,
                        SplineCoeff, SplineCoeffND)
+from . import backend, jitfields
 
 _doc_interpolation = \
 """`interpolation` can be an int, a string or an InterpolationType.
@@ -165,6 +171,10 @@ def grid_pull(input, grid, interpolation='linear', bound='zero',
         Deformed image.
 
     """
+    if backend.jitfields and jitfields.available:
+        return jitfields.grid_pull(input, grid, interpolation, bound,
+                                   extrapolate, prefilter)
+
     grid, input, shape_info = _preproc(grid, input)
     batch, channel = input.shape[:2]
     dim = grid.shape[-1]
@@ -223,6 +233,10 @@ def grid_push(input, grid, shape=None, interpolation='linear', bound='zero',
         Spatted image.
 
     """
+    if backend.jitfields and jitfields.available:
+        return jitfields.grid_push(input, grid, shape, interpolation, bound,
+                                   extrapolate, prefilter)
+
     grid, input, shape_info = _preproc(grid, input, mode='push')
     dim = grid.shape[-1]
 
@@ -265,6 +279,9 @@ def grid_count(grid, shape=None, interpolation='linear', bound='zero',
         Splatted weights.
 
     """
+    if backend.jitfields and jitfields.available:
+        return jitfields.grid_count(grid, interpolation, bound, extrapolate)
+
     grid, shape_info = _preproc(grid)
     out = GridCount.apply(grid, shape, interpolation, bound, extrapolate)
     return _postproc(out, shape_info, mode='count')
@@ -303,6 +320,10 @@ def grid_grad(input, grid, interpolation='linear', bound='zero',
         Sampled gradients.
 
     """
+    if backend.jitfields and jitfields.available:
+        return jitfields.grid_grad(input, grid, interpolation, bound,
+                                   extrapolate, prefilter)
+
     grid, input, shape_info = _preproc(grid, input)
     dim = grid.shape[-1]
     if prefilter:
@@ -354,6 +375,10 @@ def spline_coeff(input, interpolation='linear', bound='dct2', dim=-1,
     # SPM12 is released under the GNU-GPL v2 license.
     # Philippe Thevenaz's code does not have an explicit license as far
     # as we know.
+    if backend.jitfields and jitfields.available:
+        return jitfields.spline_coeff(input, interpolation, bound,
+                                      dim, inplace)
+
     out = SplineCoeff.apply(input, bound, interpolation, dim, inplace)
     return out
 
@@ -400,6 +425,10 @@ def spline_coeff_nd(input, interpolation='linear', bound='dct2', dim=None,
     # SPM12 is released under the GNU-GPL v2 license.
     # Philippe Thevenaz's code does not have an explicit license as far
     # as we know.
+    if backend.jitfields and jitfields.available:
+        return jitfields.spline_coeff_nd(input, interpolation, bound,
+                                         dim, inplace)
+
     out = SplineCoeffND.apply(input, bound, interpolation, dim, inplace)
     return out
 
