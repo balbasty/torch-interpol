@@ -14,7 +14,7 @@ def inbounds_mask(extrapolate: int, grid, shape: List[int])\
     mask: Optional[Tensor] = None
     if extrapolate in (0, 2):  # no / hist
         grid = grid.unsqueeze(1)
-        tiny = 1e-5
+        tiny = 5e-2
         threshold = tiny
         if extrapolate == 2:
             threshold = 0.5 + tiny
