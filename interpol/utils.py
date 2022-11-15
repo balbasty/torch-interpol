@@ -27,8 +27,8 @@ def make_list(x, n=None, **kwargs):
     if not isinstance(x, (list, tuple)):
         x = [x]
     x = list(x)
-    default = kwargs.get('default', x[-1])
-    if n:
+    if n and len(x) < n:
+        default = kwargs.get('default', x[-1])
         x = x + [default] * max(0, n - len(x))
     return x
 

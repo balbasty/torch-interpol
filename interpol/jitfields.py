@@ -76,10 +76,9 @@ def spline_coeff_nd(input, interpolation='linear', bound='dct2', dim=None,
 def resize(image, factor=None, shape=None, anchor='c',
            interpolation=1, prefilter=True, **kwargs):
     kwargs.setdefault('bound', 'nearest')
-    kwargs.setdefault('extrapolate', True)
     ndim = max(len(make_list(factor or [])),
                len(make_list(shape or [])),
                len(make_list(anchor or []))) or (image.dim() - 2)
-    return resize(image, factor=factor, shape=shape, ndim=ndim,
-                  anchor=anchor, order=interpolation, bound=kwargs['bound'],
-                  extrapolate=kwargs['extrapolate'], prefilter=prefilter)
+    return jitfields.resize(image, factor=factor, shape=shape, ndim=ndim,
+                            anchor=anchor, order=interpolation,
+                            bound=kwargs['bound'], prefilter=prefilter)
