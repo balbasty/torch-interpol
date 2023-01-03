@@ -117,7 +117,7 @@ def pull(inp, grid, bound: List[Bound], spline: List[Spline],
         # gather
         idx = [c[n] for c, n in zip(coords, nodes)]
         idx = sub2ind_list(idx, shape).unsqueeze(1)
-        idx = idx.expand([batch, 1, idx.shape[-1]])
+        idx = idx.expand([batch, channel, idx.shape[-1]])
         out1 = inp.gather(-1, idx)
 
         # apply sign
