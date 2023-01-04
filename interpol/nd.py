@@ -109,11 +109,13 @@ def pull(inp, grid, bound: List[Bound], spline: List[Spline],
     # iterate across nodes/corners
     range_nodes = [torch.as_tensor([d for d in range(n)])
                    for n in [s.order + 1 for s in spline]]
-    all_nodes = cartesian_prod(range_nodes)
     if dim == 1:
-        all_nodes = all_nodes.unsqueeze(0)
+        # cartesian_prod does not work as expected when only one
+        # element is provided
+        all_nodes = range_nodes[0].unsqueeze(-1)
+    else:
+        all_nodes = cartesian_prod(range_nodes)
     for nodes in all_nodes:
-
         # gather
         idx = [c[n] for c, n in zip(coords, nodes)]
         idx = sub2ind_list(idx, shape).unsqueeze(1)
@@ -176,9 +178,12 @@ def push(inp, grid, shape: Optional[List[int]], bound: List[Bound],
     # iterate across nodes/corners
     range_nodes = [torch.as_tensor([d for d in range(n)])
                    for n in [s.order + 1 for s in spline]]
-    all_nodes = cartesian_prod(range_nodes)
     if dim == 1:
-        all_nodes = all_nodes.unsqueeze(0)
+        # cartesian_prod does not work as expected when only one
+        # element is provided
+        all_nodes = range_nodes[0].unsqueeze(-1)
+    else:
+        all_nodes = cartesian_prod(range_nodes)
     for nodes in all_nodes:
 
         # gather
@@ -241,9 +246,12 @@ def grad(inp, grid, bound: List[Bound], spline: List[Spline],
     # iterate across nodes/corners
     range_nodes = [torch.as_tensor([d for d in range(n)])
                    for n in [s.order + 1 for s in spline]]
-    all_nodes = cartesian_prod(range_nodes)
     if dim == 1:
-        all_nodes = all_nodes.unsqueeze(0)
+        # cartesian_prod does not work as expected when only one
+        # element is provided
+        all_nodes = range_nodes[0].unsqueeze(-1)
+    else:
+        all_nodes = cartesian_prod(range_nodes)
     for nodes in all_nodes:
 
         # gather
@@ -314,9 +322,12 @@ def pushgrad(inp, grid, shape: Optional[List[int]], bound: List[Bound],
     # iterate across nodes/corners
     range_nodes = [torch.as_tensor([d for d in range(n)])
                    for n in [s.order + 1 for s in spline]]
-    all_nodes = cartesian_prod(range_nodes)
     if dim == 1:
-        all_nodes = all_nodes.unsqueeze(0)
+        # cartesian_prod does not work as expected when only one
+        # element is provided
+        all_nodes = range_nodes[0].unsqueeze(-1)
+    else:
+        all_nodes = cartesian_prod(range_nodes)
     for nodes in all_nodes:
 
         # gather
@@ -386,9 +397,12 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
     # iterate across nodes/corners
     range_nodes = [torch.as_tensor([d for d in range(n)])
                    for n in [s.order + 1 for s in spline]]
-    all_nodes = cartesian_prod(range_nodes)
     if dim == 1:
-        all_nodes = all_nodes.unsqueeze(0)
+        # cartesian_prod does not work as expected when only one
+        # element is provided
+        all_nodes = range_nodes[0].unsqueeze(-1)
+    else:
+        all_nodes = cartesian_prod(range_nodes)
     for nodes in all_nodes:
 
         # gather
