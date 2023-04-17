@@ -16,11 +16,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         ref: ${{ inputs.tag }}
     - name: Setup Python ${{ inputs.python-version }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ inputs.python-version }}
     - name: Test with pytest
