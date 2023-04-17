@@ -69,12 +69,12 @@ class Bound:
             i = i.remainder(n2)
             x = torch.where(i == 0, zero, one)
             x = torch.where(i.remainder(n + 1) == n, zero, x)
-            x = torch.where((i / (n+1)).remainder(2) > 0, -x, x)
+            x = torch.where(i.floor_divide(n+1).remainder(2) > 0, -x, x)
             return x
         elif self.type == 5:  # dst2
             i = torch.where(i < 0, n - 1 - i, i)
             x = torch.ones([1], dtype=torch.int8, device=i.device)
-            x = torch.where((i / n).remainder(2) > 0, -x, x)
+            x = torch.where(i.floor_divide(n).remainder(2) > 0, -x, x)
             return x
         elif self.type == 0:  # zero
             one = torch.ones([1], dtype=torch.int8, device=i.device)
