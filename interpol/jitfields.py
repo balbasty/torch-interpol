@@ -82,3 +82,14 @@ def resize(image, factor=None, shape=None, anchor='c',
     return jitfields.resize(image, factor=factor, shape=shape, ndim=ndim,
                             anchor=anchor, order=interpolation,
                             bound=kwargs['bound'], prefilter=prefilter)
+
+
+def restrict(image, factor=None, shape=None, anchor='c',
+             interpolation=1, reduce_sum=False, **kwargs):
+    kwargs.setdefault('bound', 'nearest')
+    ndim = max(len(make_list(factor or [])),
+               len(make_list(shape or [])),
+               len(make_list(anchor or []))) or (image.dim() - 2)
+    return jitfields.restrict(image, factor=factor, shape=shape, ndim=ndim,
+                              anchor=anchor, order=interpolation,
+                              bound=kwargs['bound'], reduce_sum=reduce_sum)

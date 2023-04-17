@@ -1,5 +1,6 @@
 from .api import *
 from .resize import *
+from .restrict import *
 from . import backend
 
 from . import _version
