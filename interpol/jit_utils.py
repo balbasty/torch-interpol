@@ -427,3 +427,17 @@ else:
 
 
 meshgrid = meshgrid_ij
+
+
+# In torch < 1.6, div applied to integer tensor performed a floor_divide
+# In torch > 1.6, it performs a true divide.
+# Floor division must be done using `floor_divide`, but it was buggy
+# until torch 1.13 (it was doing a trunc divide instead of a floor divide).
+# There was at some point a deprecation warning for floor_divide, but it
+# seems to have been lifted afterwards. In torch >= 1.13, floor_divide
+# performs a correct floor division.
+# Since we only apply floor_divide ot positive values, we are fine.
+if torch_version('<', (1, 6)):
+    floor_div = torch.div
+else:
+    floor_div = torch.floor_divide
