@@ -15,6 +15,18 @@ PyTorch-based package dedicated to NeuroImaging and Medical Image Computing.
 
 ## Installation
 
+### Dependency
+
+- `torch >= 1.3`
+
+### Conda
+
+```shell
+conda install torch-interpol -c balbasty -c pytorch
+```
+
+### Pip
+
 ```shell
 pip install torch-interpol
 ```
