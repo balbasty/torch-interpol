@@ -19,16 +19,22 @@ runs:
     - uses: actions/checkout@v3
       with:
         ref: ${{ inputs.tag }}
-    - name: Setup Python ${{ inputs.python-version }}
-      uses: actions/setup-python@v4
+    - uses: conda-incubator/setup-miniconda@v2
       with:
+        mamba-version: "*"
         python-version: ${{ inputs.python-version }}
-    - name: Test with pytest
-      env:
+        channels: conda-forge,pytorch,defaults
+        activate-environment: test-env
+    - name: Install dependencies
+      shell: bash -el {0}
+      env: 
         PYTORCH_VERSION: ${{ inputs.pytorch-version }}
+      run: |
+        mamba install pytorch=${PYTORCH_VERSION} cppyy numpy pytest
+    - name: Test with pytest
+      shell: bash -el {0}
       run: |
         pip install "torch==${PYTORCH_VERSION}" pytest
         [ "${PYTORCH_VERSION}" == "1.4" ] && pip install numpy
         pip install .
         pytest pytest --pyargs interpol
-      shell: bash

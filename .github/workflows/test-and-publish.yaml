@@ -1,4 +1,4 @@
-name: Test package and publish to PyPi
+name: Test package and publish
 
 on:
   workflow_dispatch:
@@ -7,37 +7,37 @@ on:
         description: 'Commit / Branch / Tag / SHA to checkout'
         required: false
         default: ''
-      publish:
-        description: 'Publish'
-        required: false
-        default: 'auto'
-        type: choice
-        options:
-          - 'auto'
-          - 'none'
-          - 'pypi'
-          - 'test'
-          - 'test+pypi'
       test:
         description: 'Run tests'
         required: false
-        default: 'needs'
+        default: true
+        type: boolean
+      publish:
+        description: 'Publish'
+        required: false
+        default: 'none'
         type: choice
         options:
-          - 'yes'
-          - 'no'
-          - 'needs'
+          - 'none'
+          - 'pypi'
+          - 'test'
+          - 'conda'
+          - 'dryconda'
+          - 'test+pypi'
+          - 'pypi+conda'
+          - 'test+pypi+conda'
       python-version:
         description: 'Python version'
         required: false
-        default: '3.6'
-#  push:
-#    branches: [ main ]
-#  release
+        default: '3.7'
+      conda-platforms:
+        description: 'Target platforms'
+        required: false
+        default: 'noarch'
 
 jobs:
   test:
-    if: inputs.test != 'no'
+    if: inputs.test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -57,36 +57,46 @@ jobs:
           tag: ${{ inputs.tag }}
 
   publish:
-    if: |
-      inputs.test == 'needs' && 
-      inputs.publish != 'none' && 
-      (inputs.publish != 'auto' || 
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags')))
+    if: inputs.test && inputs.publish != 'none'
     needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/publish
+      - uses: ./.github/actions/pypi
+        if: |
+          contains(inputs.publish, 'pypi') || contains(inputs.publish, 'test')
         with:
           python-version: ${{ inputs.python-version }}
           publish: ${{ inputs.publish }}
-          password-pypi: ${{ secrets.pypi_token }}
-          password-test: ${{ secrets.test_pypi_token }}
           tag: ${{ inputs.tag }}
+          pypi-password: ${{ secrets.PYPI_TOKEN }}
+          test-password: ${{ secrets.TEST_PYPI_TOKEN }}
+      - uses: ./.github/actions/conda
+        if: contains(inputs.publish, 'conda')
+        with:
+          tag: ${{ inputs.tag }}
+          platforms: ${{ inputs.conda-platforms }}
+          dry_run: ${{ contains(inputs.publish, 'dry') }}
+          password: ${{ secrets.ANACONDA_TOKEN }}
 
   publish-only:
-    if: |
-      inputs.test != 'needs'  && 
-      inputs.publish != 'none' &&
-      (inputs.publish != 'auto' || 
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags')))
+    if: (!inputs.test) && inputs.publish != 'none'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/publish
+      - uses: ./.github/actions/pypi
+        if: |
+          contains(inputs.publish, 'pypi') || contains(inputs.publish, 'test')
         with:
           python-version: ${{ inputs.python-version }}
           publish: ${{ inputs.publish }}
-          password-pypi: ${{ secrets.pypi_token }}
-          password-test: ${{ secrets.test_pypi_token }}
           tag: ${{ inputs.tag }}
+          pypi-password: ${{ secrets.PYPI_TOKEN }}
+          test-password: ${{ secrets.TEST_PYPI_TOKEN }}
+      - uses: ./.github/actions/conda
+        if: contains(inputs.publish, 'conda')
+        with:
+          tag: ${{ inputs.tag }}
+          platforms: ${{ inputs.conda-platforms }}
+          dry-run: ${{ contains(inputs.publish, 'dry') }}
+          password: ${{ secrets.ANACONDA_TOKEN }}

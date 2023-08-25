@@ -1,0 +1,89 @@
+name: conda
+description: Publish to Anaconda
+inputs:
+  tag:
+    description: 'Commit / Branch / Tag / SHA to checkout'
+    required: false
+    default: ''
+  platforms:
+    description: 'Platforms [all noarch osx-64 osx-arm64 linux-32 linux-ppc64 linux-ppc64le linux-s390x linux-armv6l linux-armv7l linux-aarch64 win-32 win-64]'
+    required: false
+    default: 'noarch'
+  python-version:
+    description: 'One or multiple python versions'
+    required: false
+    default: 3.7
+  dry-run:
+    description: 'Dry run'
+    required: false
+    default: false
+  override:
+    description: 'Override'
+    required: false
+    default: true
+  password: 
+    required: true
+runs:
+  using: "composite"
+  steps:
+  - shell: bash
+    env:
+      TAG: ${{ inputs.tag }}
+      PLATFORMS: ${{ inputs.platforms }}
+      DRYRUN: ${{ inputs.dry-run }}
+      OVERRIDE: ${{ inputs.override }}
+    run: echo "$TAG // $PLATFORMS // $DRYRUN // $OVERRIDE"
+  - uses: actions/checkout@v3
+    with:
+      fetch-depth: 0
+      ref: ${{ inputs.tag }}
+  - uses: conda-incubator/setup-miniconda@v2
+    with:
+      mamba-version: "*"
+      channels: conda-forge,defaults
+      channel-priority: true
+      activate-environment: build
+  - name: Install boa / anaconda
+    shell: bash -el {0}
+    run: |
+      mamba install boa anaconda-client
+  - name: Build
+    shell: bash -el {0}
+    env:
+      PY: ${{ inputs.python-version }}
+    run: |
+      PY=($PY)
+      OPT=""
+      for V in "${PY[@]}"; do
+      OPT+=",${V}"
+      done
+      OPT="{python: [${OPT:1}]}"
+      conda mambabuild --variants "$OPT" -c pytorch --croot . .conda
+  - name: Convert
+    shell: bash -el {0}
+    env:
+      PLATFORMS: ${{ inputs.platforms }}
+    run: |
+      for PLATFORM in osx-64 osx-arm64 linux-32 linux-64 linux-ppc64 linux-s390x linux-armv6l linux-armv7l linux-aarch64 win-32 win-64
+      do
+        if [[ $PLATFORMS == *"all"* || $PLATFORMS == *"${PLATFORM}"* ]]; then
+          conda convert -p $PLATFORM linux-64/*.tar.bz2
+        fi
+      done
+  - name: "Publish (dry run: ${{ inputs.dry-run }})"
+    if: inputs.dry-run == 'false'
+    shell: bash -el {0}
+    env: 
+      OVERRIDE: ${{ inputs.override }}
+      PLATFORMS: ${{ inputs.platforms }}
+      ANACONDA_API_TOKEN: ${{ inputs.password }}
+    run: |
+      export ANACONDA_API_TOKEN
+      [[ "${OVERRIDE}" == "true" ]] && FORCE="--force" || FORCE=""
+
+      for PLATFORM in noarch osx-64 osx-arm64 linux-32 linux-64 linux-ppc64 linux-s390x linux-armv6l linux-armv7l linux-aarch64 win-32 win-64
+      do
+        if [[ $PLATFORMS == *"all"* || $PLATFORMS == *"${PLATFORM}"* ]]; then
+          anaconda upload ${FORCE} --label main ${PLATFORM}/*.tar.bz2
+        fi
+      done

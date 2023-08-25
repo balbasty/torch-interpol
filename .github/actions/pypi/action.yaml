@@ -1,4 +1,4 @@
-name: Publish to PyPi
+name: pypi
 description: Publish to PyPi
 inputs:
   python-version:
@@ -13,13 +13,10 @@ inputs:
     description: 'Publish'
     required: false
     default: 'test+pypi'
-    # {pypi, test, test+pypi, auto}
-    # auto is an alias for test+pypi
-  password-pypi:
-    description: 'PyPi password'
+    # {pypi, test, test+pypi}
+  pypi-password:
     required: true
-  password-test:
-    description: 'Test PyPi password'
+  test-password: 
     required: true
 runs:
   using: "composite"
@@ -42,20 +39,14 @@ runs:
         python setup.py sdist bdist_wheel
       shell: bash
     - name: Publish distribution 📦 to Test PyPI
-      if: |
-        inputs.publish == 'test' || 
-        inputs.publish == 'test+pypi' || 
-        inputs.publish == 'auto'
+      if: ${{ contains(inputs.publish, 'test') }}
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        password: ${{ inputs.password-test }}
+        password: ${{ inputs.test-password }}
         repository_url: https://test.pypi.org/legacy/
     - name: Publish distribution 📦 to PyPI
-      if: |
-        inputs.publish == 'pypi' || 
-        inputs.publish == 'test+pypi' || 
-        inputs.publish == 'auto'
+      if: ${{ contains(inputs.publish, 'pypi') }}
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        password: ${{ inputs.password-pypi }}
+        password: ${{ inputs.pypi-password }}
         repository_url: https://upload.pypi.org/legacy/
