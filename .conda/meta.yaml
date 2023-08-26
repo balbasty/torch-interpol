@@ -1,5 +1,5 @@
 {% set name = "torch-interpol" %}
-{% set version = "0.2.3" %}
+{% set version = "0.2.4" %}
 
 package:
   name: "{{ name|lower }}"
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 1dcb4d7c28beaf0925c009ada9d3eba63f5d4f11b24933a2332fc5ef943022b0
+  sha256: 6c230647fb9f290eca14e31b34571061430d80c6228c5cc4edce1e3239d59a0a
 
 build:
   number: 0
