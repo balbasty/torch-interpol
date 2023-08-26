@@ -30,11 +30,9 @@ runs:
       env: 
         PYTORCH_VERSION: ${{ inputs.pytorch-version }}
       run: |
-        mamba install pytorch=${PYTORCH_VERSION} cppyy numpy pytest
+        mamba install pytorch=${PYTORCH_VERSION} pytest
     - name: Test with pytest
       shell: bash -el {0}
       run: |
-        pip install "torch==${PYTORCH_VERSION}" pytest
-        [ "${PYTORCH_VERSION}" == "1.4" ] && pip install numpy
         pip install .
         pytest pytest --pyargs interpol
