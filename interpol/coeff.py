@@ -186,7 +186,7 @@ def dct2_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
 
     out = _dot(inp, poles)
     out = out * (pole / ( 1 - polen * polen))
-    out = out + inp.movedim(-1, 0)[0]
+    out = out + movedim1(inp, -1, 0)[0]
 
     if keepdim:
         out = out.unsqueeze(dim)
