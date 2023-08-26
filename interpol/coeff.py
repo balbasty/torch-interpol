@@ -134,14 +134,19 @@ def dct1_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
         inp = inp[1:-1]
         inp = movedim1(inp, 0, -1)
 
-        poles = torch.as_tensor(pole, dtype=inp.dtype, device=inp.device)
-        poles = poles.pow(
-            torch.arange(1, n-1, dtype=inp.dtype, device=inp.device)
-        )
-        poles = poles + (polen * polen) / poles
+        out = inp0.unsqueeze(-1)
 
-        out = torch.matmul(inp.unsqueeze(-2), poles.unsqueeze(-1)).squeeze(-1)
-        out = out + inp0.unsqueeze(-1)
+        if n > 2:
+            poles = torch.as_tensor(pole, dtype=inp.dtype, device=inp.device)
+            poles = poles.pow(
+                torch.arange(1, n-1, dtype=inp.dtype, device=inp.device)
+            )
+            poles = poles + (polen * polen) / poles
+
+            out = out + torch.matmul(
+                inp.unsqueeze(-2), poles.unsqueeze(-1)
+            ).squeeze(-1)
+
         if keepdim:
             out = movedim1(out, -1, dim)
         else:
@@ -151,6 +156,11 @@ def dct1_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
         out = out / (1 - pole * pole)
 
     return out
+
+
+@torch.jit.script
+def _dot(x, y):
+    return x.unsqueeze(-2).matmul(y.unsqueeze(-1)).squeeze(-1).squeeze(-1)
 
 
 @torch.jit.script
@@ -165,36 +175,21 @@ def dct2_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
     # I think it would require a more complicated anticausal/final condition.
 
     n = inp.shape[dim]
-
     polen = pole ** n
-    pole_last = polen * (1 + 1/(pole + polen * polen))
-    inp00 = inp[0]
-    inp0 = inp[0] + pole_last * inp[-1]
-    inp = inp[1:-1]
-    inp = movedim1(inp, 0, -1)
+    inp = movedim1(inp, dim, -1)
 
-    out = inp0.unsqueeze(-1)
+    poles = torch.as_tensor(pole, dtype=inp.dtype, device=inp.device)
+    poles = poles.pow(
+            torch.arange(0, n, dtype=inp.dtype, device=inp.device)
+    )
+    poles = poles + polen * poles.flip(0)
 
-    if n > 2:
-        poles = torch.as_tensor(pole, dtype=inp.dtype, device=inp.device)
-        poles = (
-            poles.pow(
-                torch.arange(1, n-1, dtype=inp.dtype, device=inp.device)
-            ) 
-            +
-            poles.pow(
-                torch.arange(2*n-2, n, -1, dtype=inp.dtype, device=inp.device)
-            )
-        )
-        out = out + inp.unsqueeze(-2).matmul(poles.unsqueeze(-1)).squeeze(-1)
-
-    out = out * (pole / (1 - polen * polen))
-    out = out + inp00.unsqueeze(-1)
+    out = _dot(inp, poles)
+    out = out * (pole / ( 1 - polen * polen))
+    out = out + inp.movedim(-1, 0)[0]
 
     if keepdim:
-        out = movedim1(out, -1, dim)
-    else:
-        out = out.squeeze(-1)
+        out = out.unsqueeze(dim)
 
     return out
 
