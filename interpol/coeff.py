@@ -2,27 +2,27 @@
 
 These functions are ported from the C routines in SPM's bsplines.c
 by John Ashburner, which are themselves ports from Philippe Thevenaz's
-code. JA furthermore derived the initial conditions for the DFT 
+code. JA furthermore derived the initial conditions for the DFT
 ("wrap around") boundary conditions.
 
 Note that similar routines are available in scipy with boundary conditions
-DCT1 ("mirror"), DCT2 ("reflect") and DFT ("wrap"); all derived by 
-P. Thevenaz, according to the comments. Our DCT2 boundary conditions 
+DCT1 ("mirror"), DCT2 ("reflect") and DFT ("wrap"); all derived by
+P. Thevenaz, according to the comments. Our DCT2 boundary conditions
 are ported from scipy.
 
 Only boundary conditions DCT1, DCT2 and DFT are implemented.
 
-References
-----------
-1.  M. Unser, A. Aldroubi and M. Eden.
-    "B-Spline Signal Processing: Part I-Theory,"
-    IEEE Transactions on Signal Processing 41(2):821-832 (1993).
-2.  M. Unser, A. Aldroubi and M. Eden.
-    "B-Spline Signal Processing: Part II-Efficient Design and Applications,"
-    IEEE Transactions on Signal Processing 41(2):834-848 (1993).
-3.  M. Unser.
-    "Splines: A Perfect Fit for Signal and Image Processing,"
-    IEEE Signal Processing Magazine 16(6):22-38 (1999).
+!!! quote "References"
+    1.  M. Unser, A. Aldroubi and M. Eden.
+        **"B-Spline Signal Processing: Part I-Theory,"**
+        _IEEE Transactions on Signal Processing_ 41(2):821-832 (1993).
+    2.  M. Unser, A. Aldroubi and M. Eden.
+        **"B-Spline Signal Processing: Part II-Efficient Design and
+        Applications,"**
+        _IEEE Transactions on Signal Processing_ 41(2):834-848 (1993).
+    3.  M. Unser.
+        **"Splines: A Perfect Fit for Signal and Image Processing,"**
+        _IEEE Signal Processing Magazine_ 16(6):22-38 (1999).
 """
 import torch
 import math
@@ -171,7 +171,7 @@ def dct2_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
     poles = poles + polen * poles.flip(0)
 
     out = _dot(inp, poles)
-    out = out * (pole / ( 1 - polen * polen))
+    out = out * (pole / (1 - polen * polen))
     out = out + movedim1(inp, -1, 0)[0]
 
     if keepdim:
@@ -287,7 +287,7 @@ def filter(inp, bound: CoeffBound, poles: List[float],
 @torch.jit.script
 def spline_coeff(inp, bound: int, order: int, dim: int = -1,
                  inplace: bool = False):
-    """Compute the interpolating spline coefficients, for a given 
+    """Compute the interpolating spline coefficients, for a given
     spline order and boundary conditions, along a single dimension.
 
     Parameters
@@ -316,7 +316,7 @@ def spline_coeff(inp, bound: int, order: int, dim: int = -1,
 @torch.jit.script
 def spline_coeff_nd(inp, bound: List[int], order: List[int],
                     dim: Optional[int] = None, inplace: bool = False):
-    """Compute the interpolating spline coefficients, for a given 
+    """Compute the interpolating spline coefficients, for a given
     spline order and boundary condition, along the last `dim` dimensions.
 
     Parameters

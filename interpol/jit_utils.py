@@ -1,7 +1,7 @@
 """A lot of utility functions for TorchScript"""
 import torch
 import os
-from typing import List, Tuple, Optional
+from typing import List, Optional
 from .utils import torch_version
 from torch import Tensor
 
@@ -119,13 +119,13 @@ def list_cumprod_int(x: List[int], reverse: bool = False,
 
 
 @torch.jit.script
-def movedim1(x, source: int, destination: int):
+def movedim1(x, src: int, dst: int):
     dim = x.dim()
-    source = dim + source if source < 0 else source
-    destination = dim + destination if destination < 0 else destination
+    src = dim + src if src < 0 else src
+    dst = dim + dst if dst < 0 else dst
     permutation = [d for d in range(dim)]
-    permutation = permutation[:source] + permutation[source+1:]
-    permutation = permutation[:destination] + [source] + permutation[destination:]
+    permutation = permutation[:src] + permutation[src+1:]
+    permutation = permutation[:dst] + [src] + permutation[dst:]
     return x.permute(permutation)
 
 
@@ -189,24 +189,33 @@ def sub2ind_list(subs: List[Tensor], shape: List[int]):
         ind += i * s
     return ind
 
-# floor_divide returns wrong results for negative values, because it truncates
-# instead of performing a proper floor. In recent version of pytorch, it is
-# advised to use div(..., rounding_mode='trunc'|'floor') instead.
-# Here, we only use floor_divide on positive values so we do not care.
+
+# In torch < 1.6, div applied to integer tensor performed a floor_divide
+# In torch > 1.6, it performs a true divide.
+# Floor division must be done using `floor_divide`, but it was buggy
+# until torch 1.13 (it was doing a trunc divide instead of a floor divide).
+# There was at some point a deprecation warning for floor_divide, but it
+# seems to have been lifted afterwards. In torch >= 1.13, floor_divide
+# performs a correct floor division.
+# Since we only apply floor_divide ot positive values, we are fine.
 if torch_version('>=', [1, 8]):
     @torch.jit.script
     def floor_div(x, y) -> torch.Tensor:
         return torch.div(x, y, rounding_mode='floor')
+
     @torch.jit.script
     def floor_div_int(x, y: int) -> torch.Tensor:
         return torch.div(x, y, rounding_mode='floor')
+elif torch_version('<', (1, 6)):
+    floor_div = torch.div
 else:
-    @torch.jit.script
-    def floor_div(x, y) -> torch.Tensor:
-        return (x / y).floor_()
-    @torch.jit.script
-    def floor_div_int(x, y: int) -> torch.Tensor:
-        return (x / y).floor_()
+    floor_div = torch.floor_divide
+#     @torch.jit.script
+#     def floor_div(x, y) -> torch.Tensor:
+#         return (x / y).floor_()
+#     @torch.jit.script
+#     def floor_div_int(x, y: int) -> torch.Tensor:
+#         return (x / y).floor_()
 
 
 @torch.jit.script
@@ -287,7 +296,7 @@ def inbounds_mask_1d(extrapolate: int, gx, nx: int) -> Optional[Tensor]:
 
 @torch.jit.script
 def make_sign(sign: List[Optional[Tensor]]) -> Optional[Tensor]:
-    is_none : List[bool] = [s is None for s in sign]
+    is_none: List[bool] = [s is None for s in sign]
     if list_all(is_none):
         return None
     filt_sign: List[Tensor] = []
@@ -383,20 +392,23 @@ def dot_multi(x, y, dim: List[int], keepdim: bool = False):
     return dt
 
 
-
 # cartesian_prod takes multiple inout tensors as input in eager mode
 # but takes a list of tensor in jit mode. This is a helper that works
 # in both cases.
 if not int(os.environ.get('PYTORCH_JIT', '1')):
-    cartesian_prod = lambda x: torch.cartesian_prod(*x)
+    def cartesian_prod(x):
+        return torch.cartesian_prod(*x)
+
     if torch_version('>=', (1, 10)):
         def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(*x, indexing='ij')
+
         def meshgrid_xy(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(*x, indexing='xy')
     else:
         def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(*x)
+
         def meshgrid_xy(x: List[torch.Tensor]) -> List[torch.Tensor]:
             grid = torch.meshgrid(*x)
             if len(grid) > 1:
@@ -410,6 +422,7 @@ else:
         @torch.jit.script
         def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(x, indexing='ij')
+
         @torch.jit.script
         def meshgrid_xy(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(x, indexing='xy')
@@ -417,6 +430,7 @@ else:
         @torch.jit.script
         def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(x)
+
         @torch.jit.script
         def meshgrid_xyt(x: List[torch.Tensor]) -> List[torch.Tensor]:
             grid = torch.meshgrid(x)
@@ -429,14 +443,14 @@ else:
 meshgrid = meshgrid_ij
 
 
-# In torch < 1.6, div applied to integer tensor performed a floor_divide
-# In torch > 1.6, it performs a true divide.
-# Floor division must be done using `floor_divide`, but it was buggy
-# until torch 1.13 (it was doing a trunc divide instead of a floor divide).
-# There was at some point a deprecation warning for floor_divide, but it
-# seems to have been lifted afterwards. In torch >= 1.13, floor_divide
-# performs a correct floor division.
-# Since we only apply floor_divide ot positive values, we are fine.
+# # In torch < 1.6, div applied to integer tensor performed a floor_divide
+# # In torch > 1.6, it performs a true divide.
+# # Floor division must be done using `floor_divide`, but it was buggy
+# # until torch 1.13 (it was doing a trunc divide instead of a floor divide).
+# # There was at some point a deprecation warning for floor_divide, but it
+# # seems to have been lifted afterwards. In torch >= 1.13, floor_divide
+# # performs a correct floor division.
+# # Since we only apply floor_divide ot positive values, we are fine.
 if torch_version('<', (1, 6)):
     floor_div = torch.div
 else:

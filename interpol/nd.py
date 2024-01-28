@@ -100,7 +100,8 @@ def pull(inp, grid, bound: List[Bound], spline: List[Spline],
     mask = inbounds_mask(extrapolate, grid, shape)
 
     # precompute weights along each dimension
-    weights, _, _, coords, signs = get_weights(grid, bound, spline, shape, False, False)
+    weights, _, _, coords, signs \
+        = get_weights(grid, bound, spline, shape, False, False)
 
     # initialize
     out = torch.zeros([batch, channel, grid.shape[1]],
@@ -123,7 +124,8 @@ def pull(inp, grid, bound: List[Bound], spline: List[Spline],
         out1 = inp.gather(-1, idx)
 
         # apply sign
-        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign0: List[Optional[Tensor]] = [sgn[n]
+                                         for sgn, n in zip(signs, nodes)]
         sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
             out1 = out1 * sign1.unsqueeze(1)
@@ -193,7 +195,8 @@ def push(inp, grid, shape: Optional[List[int]], bound: List[Bound],
         out1 = inp.clone()
 
         # apply sign
-        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign0: List[Optional[Tensor]] = [sgn[n]
+                                         for sgn, n in zip(signs, nodes)]
         sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
             out1 = out1 * sign1.unsqueeze(1)
@@ -261,7 +264,8 @@ def grad(inp, grid, bound: List[Bound], spline: List[Spline],
         out0 = inp.gather(-1, idx)
 
         # apply sign
-        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign0: List[Optional[Tensor]] = [sgn[n]
+                                         for sgn, n in zip(signs, nodes)]
         sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
             out0 = out0 * sign1.unsqueeze(1)
@@ -269,7 +273,8 @@ def grad(inp, grid, bound: List[Bound], spline: List[Spline],
         for d in range(dim):
             out1 = out0.clone()
             # apply weights
-            for dd, (weight, grad1, n) in enumerate(zip(weights, grads, nodes)):
+            for dd, (weight, grad1, n) \
+                    in enumerate(zip(weights, grads, nodes)):
                 if d == dd:
                     grad11 = grad1[n]
                     if grad11 is not None:
@@ -313,7 +318,8 @@ def pushgrad(inp, grid, shape: Optional[List[int]], bound: List[Bound],
     mask = inbounds_mask(extrapolate, grid, shape)
 
     # precompute weights along each dimension
-    weights, grads, _, coords, signs = get_weights(grid, bound, spline, shape, grad=True)
+    weights, grads, _, coords, signs \
+        = get_weights(grid, bound, spline, shape, grad=True)
 
     # initialize
     out = torch.zeros([batch, channel, list_prod_int(shape)],
@@ -337,7 +343,8 @@ def pushgrad(inp, grid, shape: Optional[List[int]], bound: List[Bound],
         out0 = inp.clone()
 
         # apply sign
-        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign0: List[Optional[Tensor]] = [sgn[n]
+                                         for sgn, n in zip(signs, nodes)]
         sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
             out0 = out0 * sign1.unsqueeze(1).unsqueeze(-1)
@@ -349,7 +356,8 @@ def pushgrad(inp, grid, shape: Optional[List[int]], bound: List[Bound],
         for d in range(dim):
             out1 = out0.unbind(-1)[d].clone()
             # apply weights
-            for dd, (weight, grad1, n) in enumerate(zip(weights, grads, nodes)):
+            for dd, (weight, grad1, n) \
+                    in enumerate(zip(weights, grads, nodes)):
                 if d == dd:
                     grad11 = grad1[n]
                     if grad11 is not None:
@@ -412,7 +420,8 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
         out0 = inp.gather(-1, idx)
 
         # apply sign
-        sign0: List[Optional[Tensor]] = [sgn[n] for sgn, n in zip(signs, nodes)]
+        sign0: List[Optional[Tensor]] = [sgn[n]
+                                         for sgn, n in zip(signs, nodes)]
         sign1: Optional[Tensor] = make_sign(sign0)
         if sign1 is not None:
             out0 = out0 * sign1.unsqueeze(1)
@@ -458,7 +467,9 @@ def hess(inp, grid, bound: List[Bound], spline: List[Spline],
     # fill lower triangle
     for d in range(dim):
         for d2 in range(d+1, dim):
-            out.unbind(-1)[d2].unbind(-1)[d].copy_(out.unbind(-1)[d].unbind(-1)[d2])
+            out.unbind(-1)[d2].unbind(-1)[d].copy_(
+                out.unbind(-1)[d].unbind(-1)[d2]
+            )
 
     out = out.reshape(list(out.shape[:2]) + oshape + list(out.shape[-2:]))
     return out

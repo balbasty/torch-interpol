@@ -96,7 +96,8 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     gz, signz = get_indices(gz, nz, boundz)
 
     # scatter
-    out = torch.zeros([batch, channel, nx*ny*nz], dtype=inp.dtype, device=inp.device)
+    out = torch.zeros([batch, channel, nx*ny*nz],
+                      dtype=inp.dtype, device=inp.device)
     idx = sub2ind_list([gx, gy, gz], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     sign = make_sign([signx, signy, signz])
@@ -191,7 +192,8 @@ def push2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     gy, signy = get_indices(gy, ny, boundy)
 
     # scatter
-    out = torch.zeros([batch, channel, nx*ny], dtype=inp.dtype, device=inp.device)
+    out = torch.zeros([batch, channel, nx*ny],
+                      dtype=inp.dtype, device=inp.device)
     idx = sub2ind_list([gx, gy], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     sign = make_sign([signx, signy])

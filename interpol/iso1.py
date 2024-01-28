@@ -698,7 +698,7 @@ def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     channel = inp.shape[1]
     shape = list(inp.shape[-dim:])
     nx, ny = shape
-    
+
     # mask of inbounds voxels
     mask = inbounds_mask_2d(extrapolate, gx, gy, nx, ny)
 

@@ -35,35 +35,40 @@ class Spline:
             return 1 - x
         if self.order == 2:
             x_low = 0.75 - square(x)
-            x_up = 0.5 * square(1.5 - x)
-            return torch.where(x < 0.5, x_low, x_up)
+            x_upp = 0.5 * square(1.5 - x)
+            return torch.where(x < 0.5, x_low, x_upp)
         if self.order == 3:
             x_low = (x * x * (x - 2.) * 3. + 4.) / 6.
-            x_up = cube(2. - x) / 6.
-            return torch.where(x < 1., x_low, x_up)
+            x_upp = cube(2. - x) / 6.
+            return torch.where(x < 1., x_low, x_upp)
         if self.order == 4:
             x_low = square(x)
             x_low = x_low * (x_low * 0.25 - 0.625) + 115. / 192.
             x_mid = x * (x * (x * (5. - x) / 6. - 1.25) + 5./24.) + 55./96.
-            x_up = pow4(x - 2.5) / 24.
-            return torch.where(x < 0.5, x_low, torch.where(x < 1.5, x_mid, x_up))
+            x_upp = pow4(x - 2.5) / 24.
+            return torch.where(x < 0.5, x_low,
+                               torch.where(x < 1.5, x_mid, x_upp))
         if self.order == 5:
             x_low = square(x)
             x_low = x_low * (x_low * (0.25 - x / 12.) - 0.5) + 0.55
-            x_mid = x * (x * (x * (x * (x / 24. - 0.375) + 1.25) - 1.75) + 0.625) + 0.425
-            x_up = pow5(3 - x) / 120.
-            return torch.where(x < 1., x_low, torch.where(x < 2., x_mid, x_up))
+            x_mid = (x * (x * (x * (x * (x / 24. - 0.375) + 1.25) - 1.75)
+                          + 0.625) + 0.425)
+            x_upp = pow5(3 - x) / 120.
+            return torch.where(x < 1., x_low,
+                               torch.where(x < 2., x_mid, x_upp))
         if self.order == 6:
             x_low = square(x)
-            x_low = x_low * (x_low * (7./48. - x_low/36.) - 77./192.) + 5887./11520.
+            x_low = (x_low * (x_low * (7./48. - x_low/36.) - 77./192.)
+                     + 5887./11520.)
             x_mid_low = (x * (x * (x * (x * (x * (x / 48. - 7./48.) + 0.328125)
                          - 35./288.) - 91./256.) - 7./768.) + 7861./15360.)
             x_mid_up = (x * (x * (x * (x * (x * (7./60. - x / 120.) - 0.65625)
                         + 133./72.) - 2.5703125) + 1267./960.) + 1379./7680.)
-            x_up = pow6(x - 3.5) / 720.
+            x_upp = pow6(x - 3.5) / 720.
             return torch.where(x < .5, x_low,
                                torch.where(x < 1.5, x_mid_low,
-                                           torch.where(x < 2.5, x_mid_up, x_up)))
+                                           torch.where(x < 2.5, x_mid_up,
+                                                       x_upp)))
         if self.order == 7:
             x_low = square(x)
             x_low = (x_low * (x_low * (x_low * (x / 144. - 1./36.)
@@ -73,10 +78,11 @@ class Spline:
             x_mid_up = (x * (x * (x * (x * (x * (x * (x / 720. - 1./36.)
                         + 7./30.) - 19./18.) + 49./18.) - 23./6.) + 217./90.)
                         - 139./630.)
-            x_up = pow7(4 - x) / 5040.
+            x_upp = pow7(4 - x) / 5040.
             return torch.where(x < 1., x_low,
                                torch.where(x < 2., x_mid_low,
-                                           torch.where(x < 3., x_mid_up, x_up)))
+                                           torch.where(x < 3., x_mid_up,
+                                                       x_upp)))
         raise NotImplementedError
 
     def grad(self, x):
@@ -127,7 +133,8 @@ class Spline:
                                                        g_up)))
         if self.order == 7:
             g_low = square(x)
-            g_low = x * (g_low * (g_low * (x * (7./144.) - 1./6.) + 4./9.) - 2./3.)
+            g_low = x * (g_low * (g_low * (x * (7./144.) - 1./6.) + 4./9.)
+                         - 2./3.)
             g_mid_low = (x * (x * (x * (x * (x * (x * (-7./240.) + 3./10.)
                          - 7./6.) + 2.) - 7./6.) - 1./5.) - 7./90.)
             g_mid_up = (x * (x * (x * (x * (x * (x * (7./720.) - 1./6.)
@@ -194,3 +201,85 @@ class Spline:
                                                        h_up)))
         raise NotImplementedError
 
+
+def to_int(inter):
+    """Convert interpolation order to Enum type.
+
+    Parameters
+    ----------
+    inter : [sequence of] int or str or InterpolationType
+
+    Returns
+    -------
+    inter : [sequence of] InterpolationType
+
+    """
+    intype = type(inter)
+    if not isinstance(inter, (list, tuple)):
+        inter = [inter]
+    ointer = []
+    for o in inter:
+        o = o.lower() if isinstance(o, str) else o
+        if o in (0, 'nearest', InterpolationType.nearest):
+            ointer.append(0)
+        elif o in (1, 'linear', InterpolationType.linear):
+            ointer.append(1)
+        elif o in (2, 'quadratic', InterpolationType.quadratic):
+            ointer.append(2)
+        elif o in (3, 'cubic', InterpolationType.cubic):
+            ointer.append(3)
+        elif o in (4, 'fourth', InterpolationType.fourth):
+            ointer.append(4)
+        elif o in (5, 'fifth', InterpolationType.fifth):
+            ointer.append(5)
+        elif o in (6, 'sixth', InterpolationType.sixth):
+            ointer.append(6)
+        elif o in (7, 'seventh', InterpolationType.seventh):
+            ointer.append(7)
+        else:
+            raise ValueError(f'Unknown interpolation order {o}')
+    if issubclass(intype, (list, tuple)):
+        ointer = intype(ointer)
+    else:
+        ointer = ointer[0]
+    return ointer
+
+
+def to_enum(inter):
+    """Convert interpolation order to Enum's integer type.
+
+    Parameters
+    ----------
+    inter : [sequence of] int or str or InterpolationType
+
+    Returns
+    -------
+    inter : [sequence of] int
+
+    """
+    inter = to_int(inter)
+    if isinstance(inter, (list, tuple)):
+        return type(inter)(map(InterpolationType, inter))
+    else:
+        inter = InterpolationType(inter)
+    return inter
+
+
+def to_str(inter):
+    """Convert interpolation order to string representation.
+
+    Parameters
+    ----------
+    inter : [sequence of] int or str or InterpolationType
+
+    Returns
+    -------
+    inter : [sequence of] str
+
+    """
+    inter = to_int(inter)
+    if isinstance(inter, (list, tuple)):
+        return type(inter)(map(lambda x: InterpolationType(x).name, inter))
+    else:
+        inter = InterpolationType(inter).name
+    return inter

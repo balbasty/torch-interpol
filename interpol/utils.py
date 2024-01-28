@@ -33,51 +33,6 @@ def make_list(x, n=None, **kwargs):
     return x
 
 
-def expanded_shape(*shapes, side='left'):
-    """Expand input shapes according to broadcasting rules
-
-    Parameters
-    ----------
-    *shapes : sequence[int]
-        Input shapes
-    side : {'left', 'right'}, default='left'
-        Side to add singleton dimensions.
-
-    Returns
-    -------
-    shape : tuple[int]
-        Output shape
-
-    Raises
-    ------
-    ValueError
-        If shapes are not compatible for broadcast.
-
-    """
-    def error(s0, s1):
-        raise ValueError('Incompatible shapes for broadcasting: {} and {}.'
-                         .format(s0, s1))
-
-    # 1. nb dimensions
-    nb_dim = 0
-    for shape in shapes:
-        nb_dim = max(nb_dim, len(shape))
-
-    # 2. enumerate
-    shape = [1] * nb_dim
-    for i, shape1 in enumerate(shapes):
-        pad_size = nb_dim - len(shape1)
-        ones = [1] * pad_size
-        if side == 'left':
-            shape1 = [*ones, *shape1]
-        else:
-            shape1 = [*shape1, *ones]
-        shape = [max(s0, s1) if s0 == 1 or s1 == 1 or s0 == s1
-                 else error(s0, s1) for s0, s1 in zip(shape, shape1)]
-
-    return tuple(shape)
-
-
 def matvec(mat, vec, out=None):
     """Matrix-vector product (supports broadcasting)
 
@@ -106,6 +61,33 @@ def matvec(mat, vec, out=None):
         out = out[..., 0]
 
     return mv
+
+
+def prod(sequence, inplace=False):
+    """Perform the product of a sequence of elements.
+
+    Parameters
+    ----------
+    sequence : any object that implements `__iter__`
+        Sequence of elements for which the `__mul__` operator is defined.
+    inplace : bool, default=False
+        Perform the product inplace (using `__imul__` instead of `__mul__`).
+
+    Returns
+    -------
+    product :
+        Product of the elements in the sequence.
+
+    """
+    accumulate = None
+    for elem in sequence:
+        if accumulate is None:
+            accumulate = elem
+        elif inplace:
+            accumulate *= elem
+        else:
+            accumulate = accumulate * elem
+    return accumulate
 
 
 def _compare_versions(version1, mode, version2):
@@ -158,19 +140,3 @@ def torch_version(mode, version):
     current_version = (int(major), int(minor), int(patch))
     version = make_list(version)
     return _compare_versions(current_version, mode, version)
-
-
-if torch_version('>=', (1, 10)):
-    meshgrid_ij = lambda *x: torch.meshgrid(*x, indexing='ij')
-    meshgrid_xy = lambda *x: torch.meshgrid(*x, indexing='xy')
-else:
-    meshgrid_ij = lambda *x: torch.meshgrid(*x)
-    def meshgrid_xy(*x):
-        grid = list(torch.meshgrid(*x))
-        if len(grid) > 1:
-            grid[0] = grid[0].transpose(0, 1)
-            grid[1] = grid[1].transpose(0, 1)
-        return grid
-
-
-meshgrid = meshgrid_ij

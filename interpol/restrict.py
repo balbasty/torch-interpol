@@ -1,7 +1,8 @@
 __all__ = ['restrict']
 
 from .api import grid_push
-from .utils import make_list, meshgrid_ij
+from .utils import make_list
+from .jit_utils import meshgrid_ij
 from . import backend, jitfields
 import torch
 
@@ -10,16 +11,17 @@ def restrict(image, factor=None, shape=None, anchor='c',
              interpolation=1, reduce_sum=False, **kwargs):
     """Restrict an image by a factor or to a specific shape.
 
-    Notes
-    -----
-    .. A least one of `factor` and `shape` must be specified
-    .. If `anchor in ('centers', 'edges')`, exactly one of `factor` or
-       `shape must be specified.
-    .. If `anchor in ('first', 'last')`, `factor` must be provided even
-       if `shape` is specified.
-    .. Because of rounding, it is in general not assured that
-       `resize(resize(x, f), 1/f)` returns a tensor with the same shape as x.
+    !!! note
+        * A least one of `factor` and `shape` must be specified
+        * If `anchor in ('centers', 'edges')`, exactly one of `factor`
+          or `shape must be specified.
+        * If `anchor in ('first', 'last')`, `factor` must be provided
+         even if `shape` is specified.
+        * Because of rounding, it is in general not assured that
+         `resize(resize(x, f), 1/f)` returns a tensor with the same
+         shape as x.
 
+    ```
         edges          centers          first           last
     e - + - + - e   + - + - + - +   + - + - + - +   + - + - + - +
     | . | . | . |   | c | . | c |   | f | . | . |   | . | . | . |
@@ -28,6 +30,7 @@ def restrict(image, factor=None, shape=None, anchor='c',
     + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +
     | . | . | . |   | c | . | c |   | . | . | . |   | . | . | l |
     e _ + _ + _ e   + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +
+    ```
 
     Parameters
     ----------
@@ -35,6 +38,7 @@ def restrict(image, factor=None, shape=None, anchor='c',
         Image to resize
     factor : float or list[float], optional
         Resizing factor
+
         * > 1 : larger image <-> smaller voxels
         * < 1 : smaller image <-> larger voxels
     shape : (ndim,) list[int], optional
@@ -114,7 +118,7 @@ def restrict(image, factor=None, shape=None, anchor='c',
     kwargs.setdefault('extrapolate', True)
     kwargs.setdefault('interpolation', interpolation)
     kwargs.setdefault('prefilter', False)
-    grid = torch.stack(meshgrid_ij(*lin), dim=-1)
+    grid = torch.stack(meshgrid_ij(lin), dim=-1)
     resized = grid_push(image, grid, shape, **kwargs)
     if not reduce_sum:
         resized /= fullscale

@@ -2,13 +2,13 @@ try:
     import jitfields
     available = True
     from jitfields.pushpull import (
-        pull as jitpull, 
-        push as jitpush, 
-        count as jitcount, 
+        pull as jitpull,
+        push as jitpush,
+        count as jitcount,
         grad as jitgrad,
     )
     from jitfields.resize import (
-        resize as jitresize, 
+        resize as jitresize,
         restrict as jitrestrict,
     )
     from jitfields.splinc import (

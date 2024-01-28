@@ -1,85 +1,101 @@
 """High level interpolation API"""
-
 __all__ = ['grid_pull', 'grid_push', 'grid_count', 'grid_grad',
-           'spline_coeff', 'spline_coeff_nd',
-           'identity_grid', 'add_identity_grid', 'add_identity_grid_']
-
+           'spline_coeff', 'spline_coeff_nd', 'spline_coeff_nd_',
+           'identity_grid', 'add_identity_grid', 'add_identity_grid_',
+           'sub_identity_grid', 'sub_identity_grid_']
 import torch
-from .utils import expanded_shape, matvec
+from .utils import matvec
 from .jit_utils import movedim1, meshgrid
 from .autograd import (GridPull, GridPush, GridCount, GridGrad,
                        SplineCoeff, SplineCoeffND)
 from . import backend, jitfields
 
-_doc_interpolation = \
-"""`interpolation` can be an int, a string or an InterpolationType.
-    Possible values are:
-        - 0 or 'nearest'
-        - 1 or 'linear'
-        - 2 or 'quadratic'
-        - 3 or 'cubic'
-        - 4 or 'fourth'
-        - 5 or 'fifth'
-        - etc.
-    A list of values can be provided, in the order [W, H, D],
-    to specify dimension-specific interpolation orders."""
 
-_doc_bound = \
-"""`bound` can be an int, a string or a BoundType.
+_doc_interpolation = r"""!!! info "Interpolation"
+    `interpolation` can be an int, a string or an InterpolationType.
     Possible values are:
-        - 'replicate'  or 'nearest'     :  a  a  a  |  a  b  c  d  |  d  d  d
-        - 'dct1'       or 'mirror'      :  d  c  b  |  a  b  c  d  |  c  b  a
-        - 'dct2'       or 'reflect'     :  c  b  a  |  a  b  c  d  |  d  c  b
-        - 'dst1'       or 'antimirror'  : -b -a  0  |  a  b  c  d  |  0 -d -c
-        - 'dst2'       or 'antireflect' : -c -b -a  |  a  b  c  d  | -d -c -b
-        - 'dft'        or 'wrap'        :  b  c  d  |  a  b  c  d  |  a  b  c
-        - 'zero'       or 'zeros'       :  0  0  0  |  a  b  c  d  |  0  0  0
-    A list of values can be provided, in the order [W, H, D],
-    to specify dimension-specific boundary conditions.
-    Note that
-    - `dft` corresponds to circular padding
-    - `dct2` corresponds to Neumann boundary conditions (symmetric)
-    - `dst2` corresponds to Dirichlet boundary conditions (antisymmetric)
-    See https://en.wikipedia.org/wiki/Discrete_cosine_transform
-        https://en.wikipedia.org/wiki/Discrete_sine_transform"""
 
-_doc_bound_coeff = \
-"""`bound` can be an int, a string or a BoundType. 
+    - `0` or `'nearest'`
+    - `1` or `'linear'`
+    - `2` or `'quadratic'`
+    - `3` or `'cubic'`
+    - `4` or `'fourth'`
+    - `5` or `'fifth'`
+    - etc.
+
+    A list of values can be provided, in the order [W, H, D],
+    to specify dimension-specific interpolation orders.
+"""
+
+_doc_bound = r"""!!! info "Bounds"
+    `bound` can be an int, a string or a BoundType.
     Possible values are:
-        - 'replicate'  or 'nearest'     :  a  a  a  |  a  b  c  d  |  d  d  d
-        - 'dct1'       or 'mirror'      :  d  c  b  |  a  b  c  d  |  c  b  a
-        - 'dct2'       or 'reflect'     :  c  b  a  |  a  b  c  d  |  d  c  b
-        - 'dst1'       or 'antimirror'  : -b -a  0  |  a  b  c  d  |  0 -d -c
-        - 'dst2'       or 'antireflect' : -c -b -a  |  a  b  c  d  | -d -c -b
-        - 'dft'        or 'wrap'        :  b  c  d  |  a  b  c  d  |  a  b  c
-        - 'zero'       or 'zeros'       :  0  0  0  |  a  b  c  d  |  0  0  0
+
+    - `'replicate'`  or `'nearest'`     : ` a  a  a  |  a  b  c  d  |  d  d  d`
+    - `'dct1'`       or `'mirror'`      : ` d  c  b  |  a  b  c  d  |  c  b  a`
+    - `'dct2'`       or `'reflect'`     : ` c  b  a  |  a  b  c  d  |  d  c  b`
+    - `'dst1'`       or `'antimirror'`  : `-b -a  0  |  a  b  c  d  |  0 -d -c`
+    - `'dst2'`       or `'antireflect'` : `-c -b -a  |  a  b  c  d  | -d -c -b`
+    - `'dft'`        or `'wrap'`        : ` b  c  d  |  a  b  c  d  |  a  b  c`
+    - `'zero'`       or `'zeros'`       : ` 0  0  0  |  a  b  c  d  |  0  0  0`
+
     A list of values can be provided, in the order [W, H, D],
     to specify dimension-specific boundary conditions.
-    Note that
-    - `dft` corresponds to circular padding
-    - `dct1` corresponds to mirroring about the center of the first/last voxel
-    - `dct2` corresponds to mirroring about the edge of the first/last voxel
-    See https://en.wikipedia.org/wiki/Discrete_cosine_transform
-        https://en.wikipedia.org/wiki/Discrete_sine_transform
-        
-    /!\ Only 'dct1', 'dct2' and 'dft' are implemented for interpolation
-        orders >= 6."""
 
-_ref_coeff = \
-"""..[1]  M. Unser, A. Aldroubi and M. Eden.
-       "B-Spline Signal Processing: Part I-Theory,"
-       IEEE Transactions on Signal Processing 41(2):821-832 (1993).
-..[2]  M. Unser, A. Aldroubi and M. Eden.
-       "B-Spline Signal Processing: Part II-Efficient Design and Applications,"
-       IEEE Transactions on Signal Processing 41(2):834-848 (1993).
-..[3]  M. Unser.
-       "Splines: A Perfect Fit for Signal and Image Processing,"
-       IEEE Signal Processing Magazine 16(6):22-38 (1999).
+    !!! note
+        - `dft` corresponds to circular padding
+        - `dct2` corresponds to Neumann boundary conditions (symmetric)
+        - `dst2` corresponds to Dirichlet boundary conditions (antisymmetric)
+
+    !!! abstract "See also"
+        - https://en.wikipedia.org/wiki/Discrete_cosine_transform
+        - https://en.wikipedia.org/wiki/Discrete_sine_transform
+"""
+
+_doc_bound_coeff = r"""!!! info "Bounds"
+    `bound` can be an int, a string or a BoundType.
+    Possible values are:
+
+    - `'replicate'`  or `'nearest'`     : ` a  a  a  |  a  b  c  d  |  d  d  d`
+    - `'dct1'`       or `'mirror'`      : ` d  c  b  |  a  b  c  d  |  c  b  a`
+    - `'dct2'`       or `'reflect'`     : ` c  b  a  |  a  b  c  d  |  d  c  b`
+    - `'dst1'`       or `'antimirror'`  : `-b -a  0  |  a  b  c  d  |  0 -d -c`
+    - `'dst2'`       or `'antireflect'` : `-c -b -a  |  a  b  c  d  | -d -c -b`
+    - `'dft'`        or `'wrap'`        : ` b  c  d  |  a  b  c  d  |  a  b  c`
+    - `'zero'`       or `'zeros'`       : ` 0  0  0  |  a  b  c  d  |  0  0  0`
+
+    A list of values can be provided, in the order [W, H, D],
+    to specify dimension-specific boundary conditions.
+
+    !!! note
+        - `dft` corresponds to circular padding
+        - `dct1` corresponds to mirroring about the center of the first voxel
+        - `dct2` corresponds to mirroring about the edge of the first voxel
+
+    !!! abstract "See also"
+        - https://en.wikipedia.org/wiki/Discrete_cosine_transform
+        - https://en.wikipedia.org/wiki/Discrete_sine_transform
+
+    !!! warning
+        Only `'dct1'`, `'dct2'` and `'dft'` are implemented for interpolation
+        orders $\geqslant 6$."""
+
+_ref_coeff = r"""!!! quote "References"
+    1.  M. Unser, A. Aldroubi and M. Eden.
+       **"B-Spline Signal Processing: Part I-Theory,"**
+       _IEEE Transactions on Signal Processing_ 41(2):821-832 (1993).
+    2. M. Unser, A. Aldroubi and M. Eden.
+       **"B-Spline Signal Processing: Part II-Efficient Design and
+       Applications,"**
+       _IEEE Transactions on Signal Processing_ 41(2):834-848 (1993).
+    3.  M. Unser.
+       **"Splines: A Perfect Fit for Signal and Image Processing,"**
+       _IEEE Signal Processing Magazine_ 16(6):22-38 (1999).
 """
 
 
 def _preproc(grid, input=None, mode=None):
-    """Preprocess tensors for pull/push/count/grad
+    r"""Preprocess tensors for pull/push/count/grad
 
     Low level bindings expect inputs of shape
     [batch, channel, *spatial] and [batch, *spatial, dim], whereas
@@ -87,7 +103,8 @@ def _preproc(grid, input=None, mode=None):
     [..., [channel], *spatial] and [..., *spatial, dim].
 
     This function broadcasts and reshapes the input tensors accordingly.
-            /!\\ This *can* trigger large allocations /!\\
+
+    !!! warning "This can trigger large allocations"
     """
     dim = grid.shape[-1]
     if input is None:
@@ -104,10 +121,11 @@ def _preproc(grid, input=None, mode=None):
     input_batch = input.shape[:-dim-1]
 
     if mode == 'push':
-        grid_spatial = input_spatial = expanded_shape(grid_spatial, input_spatial)
+        grid_spatial = input_spatial \
+            = torch.broadcast_shapes(grid_spatial, input_spatial)
 
     # broadcast and reshape
-    batch = expanded_shape(grid_batch, input_batch)
+    batch = torch.broadcast_shapes(grid_batch, input_batch)
     grid = grid.expand([*batch, *grid_spatial, dim])
     grid = grid.reshape([-1, *grid_spatial, dim])
     input = input.expand([*batch, channel or 1, *input_spatial])
@@ -143,11 +161,11 @@ def grid_pull(input, grid, interpolation='linear', bound='zero',
     {interpolation}
 
     {bound}
-    
-    If the input dtype is not a floating point type, the input image is 
-    assumed to contain labels. Then, unique labels are extracted 
-    and resampled individually, making them soft labels. Finally, 
-    the label map is reconstructed from the individual soft labels by 
+
+    If the input dtype is not a floating point type, the input image is
+    assumed to contain labels. Then, unique labels are extracted
+    and resampled individually, making them soft labels. Finally,
+    the label map is reconstructed from the individual soft labels by
     assigning the label with maximum soft value.
 
     Parameters
@@ -186,9 +204,10 @@ def grid_pull(input, grid, interpolation='linear', bound='zero',
         for label in input.unique():
             soft = (input == label).to(grid.dtype)
             if prefilter:
-                input = spline_coeff_nd(soft, interpolation=interpolation,
-                                        bound=bound, dim=dim, inplace=True)
-            soft = GridPull.apply(soft, grid, interpolation, bound, extrapolate)
+                input = spline_coeff_nd(
+                    soft, interpolation, bound, dim, inplace=True)
+            soft = GridPull.apply(
+                soft, grid, interpolation, bound, extrapolate)
             out[soft > pmax] = label
             pmax = torch.max(pmax, soft)
     else:
@@ -204,10 +223,7 @@ def grid_push(input, grid, shape=None, interpolation='linear', bound='zero',
               extrapolate=False, prefilter=False):
     """Splat an image with respect to a deformation field (pull adjoint).
 
-    Notes
-    -----
     {interpolation}
-
     {bound}
 
     Parameters
@@ -254,10 +270,7 @@ def grid_count(grid, shape=None, interpolation='linear', bound='zero',
                extrapolate=False):
     """Splatting weights with respect to a deformation field (pull adjoint).
 
-    Notes
-    -----
     {interpolation}
-
     {bound}
 
     Parameters
@@ -280,7 +293,8 @@ def grid_count(grid, shape=None, interpolation='linear', bound='zero',
 
     """
     if backend.jitfields and jitfields.available:
-        return jitfields.grid_count(grid, shape, interpolation, bound, extrapolate)
+        return jitfields.grid_count(
+            grid, shape, interpolation, bound, extrapolate)
 
     grid, shape_info = _preproc(grid)
     out = GridCount.apply(grid, shape, interpolation, bound, extrapolate)
@@ -289,12 +303,10 @@ def grid_count(grid, shape=None, interpolation='linear', bound='zero',
 
 def grid_grad(input, grid, interpolation='linear', bound='zero',
               extrapolate=False, prefilter=False):
-    """Sample spatial gradients of an image with respect to a deformation field.
-    
-    Notes
-    -----
-    {interpolation}
+    """
+    Sample spatial gradients of an image with respect to a deformation field.
 
+    {interpolation}
     {bound}
 
     Parameters
@@ -337,16 +349,9 @@ def spline_coeff(input, interpolation='linear', bound='dct2', dim=-1,
     """Compute the interpolating spline coefficients, for a given spline order
     and boundary conditions, along a single dimension.
 
-    Notes
-    -----
     {interpolation}
-
     {bound}
-
-    References
-    ----------
     {ref}
-
 
     Parameters
     ----------
@@ -369,7 +374,8 @@ def spline_coeff(input, interpolation='linear', bound='dct2', dim=-1,
     """
     # This implementation is based on the file bsplines.c in SPM12, written
     # by John Ashburner, which is itself based on the file coeff.c,
-    # written by Philippe Thevenaz: http://bigwww.epfl.ch/thevenaz/interpolation
+    # written by Philippe Thevenaz:
+    #   http://bigwww.epfl.ch/thevenaz/interpolation
     # . DCT1 boundary conditions were derived by Thevenaz and Unser.
     # . DFT boundary conditions were derived by John Ashburner.
     # SPM12 is released under the GNU-GPL v2 license.
@@ -383,19 +389,20 @@ def spline_coeff(input, interpolation='linear', bound='dct2', dim=-1,
     return out
 
 
+def spline_coeff_(input, interpolation='linear', bound='dct2', dim=-1):
+    """
+    spline_coeff(..., inplace=True)
+    """
+    return spline_coeff(input, interpolation, bound, dim, True)
+
+
 def spline_coeff_nd(input, interpolation='linear', bound='dct2', dim=None,
                     inplace=False):
     """Compute the interpolating spline coefficients, for a given spline order
     and boundary conditions, along the last `dim` dimensions.
 
-    Notes
-    -----
     {interpolation}
-
     {bound}
-
-    References
-    ----------
     {ref}
 
     Parameters
@@ -419,7 +426,8 @@ def spline_coeff_nd(input, interpolation='linear', bound='dct2', dim=None,
     """
     # This implementation is based on the file bsplines.c in SPM12, written
     # by John Ashburner, which is itself based on the file coeff.c,
-    # written by Philippe Thevenaz: http://bigwww.epfl.ch/thevenaz/interpolation
+    # written by Philippe Thevenaz:
+    #   http://bigwww.epfl.ch/thevenaz/interpolation
     # . DCT1 boundary conditions were derived by Thevenaz and Unser.
     # . DFT boundary conditions were derived by John Ashburner.
     # SPM12 is released under the GNU-GPL v2 license.
@@ -431,6 +439,11 @@ def spline_coeff_nd(input, interpolation='linear', bound='dct2', dim=None,
 
     out = SplineCoeffND.apply(input, bound, interpolation, dim, inplace)
     return out
+
+
+def spline_coeff_nd_(input, interpolation='linear', bound='dct2', dim=None):
+    """spline_coeff_nd(..., inplace=True)"""
+    return spline_coeff_nd(input, interpolation, bound, dim)
 
 
 grid_pull.__doc__ = grid_pull.__doc__.format(
@@ -521,6 +534,51 @@ def add_identity_grid(disp):
     return add_identity_grid_(disp.clone())
 
 
+@torch.jit.script
+def sub_identity_grid_(disp):
+    """Subtract the identity grid to a displacement field, inplace.
+
+    Parameters
+    ----------
+    grid : (..., *spatial, dim) tensor
+        Transformation field
+
+    Returns
+    -------
+    disp : (..., *spatial, dim) tensor
+        Displacement field
+
+    """
+    dim = disp.shape[-1]
+    spatial = disp.shape[-dim-1:-1]
+    mesh1d = [torch.arange(s, dtype=disp.dtype, device=disp.device)
+              for s in spatial]
+    grid = meshgrid(mesh1d)
+    disp = movedim1(disp, -1, 0)
+    for i, grid1 in enumerate(grid):
+        disp[i].sub_(grid1)
+    disp = movedim1(disp, 0, -1)
+    return disp
+
+
+@torch.jit.script
+def sub_identity_grid(disp):
+    """Subtract the identity grid to a displacement field.
+
+    Parameters
+    ----------
+    grid : (..., *spatial, dim) tensor
+        Transformation field
+
+    Returns
+    -------
+    disp : (..., *spatial, dim) tensor
+        Displacement field
+
+    """
+    return sub_identity_grid_(disp.clone())
+
+
 def affine_grid(mat, shape):
     """Create a dense transformation grid from an affine matrix.
 
@@ -539,22 +597,23 @@ def affine_grid(mat, shape):
     """
     mat = torch.as_tensor(mat)
     shape = list(shape)
-    nb_dim = mat.shape[-1] - 1
-    if nb_dim != len(shape):
-        raise ValueError('Dimension of the affine matrix ({}) and shape ({}) '
-                         'are not the same.'.format(nb_dim, len(shape)))
-    if mat.shape[-2] not in (nb_dim, nb_dim+1):
-        raise ValueError('First argument should be matrces of shape '
-                         '(..., {0}, {1}) or (..., {1], {1}) but got {2}.'
-                         .format(nb_dim, nb_dim+1, mat.shape))
+    ndim = mat.shape[-1] - 1
+    if ndim != len(shape):
+        raise ValueError(
+            f'Dimension of the affine matrix ({ndim}) and shape '
+            f'({len(shape)}) are not the same.')
+    if mat.shape[-2] not in (ndim, ndim+1):
+        raise ValueError(
+            'First argument should be matrces of shape (..., {0}, {1}) '
+            'or (..., {1}, {1}) but got {2}.'.format(ndim, ndim+1, mat.shape))
     batch_shape = mat.shape[:-2]
     grid = identity_grid(shape, mat.dtype, mat.device)
     if batch_shape:
         for _ in range(len(batch_shape)):
             grid = grid.unsqueeze(0)
-        for _ in range(nb_dim):
+        for _ in range(ndim):
             mat = mat.unsqueeze(-1)
-    lin = mat[..., :nb_dim, :nb_dim]
-    off = mat[..., :nb_dim, -1]
+    lin = mat[..., :ndim, :ndim]
+    off = mat[..., :ndim, -1]
     grid = matvec(lin, grid) + off
     return grid
