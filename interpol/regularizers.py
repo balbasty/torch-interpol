@@ -2,6 +2,8 @@ __all__ = [
     'flowreg',
     'flowmom',
     'flowconv',
+    'flow_upsample2',
+    'coeff_upsample2',
     'make_kernel',
     'make_absolute_kernel',
     'make_membrane_kernel',
@@ -10,7 +12,9 @@ __all__ = [
     'make_shears_kernel',
 ]
 import torch
+import itertools
 from torch.nn import functional as F
+from fractions import Fraction as R
 from .padding import pad, make_vector, ensure_shape
 from .bounds import to_fourier
 from .utils import make_list
@@ -181,9 +185,110 @@ def flowmom(flow, order, *args, bound=BOUND_DEFAULT, **kwargs):
         kwargs['norm'] = flow.shape[-ndim-1:-1].numel()
     kernel = make_kernel(ndim, order, *args, **kwargs)
     mom = flowconv(flow, kernel, bound=bound)
-    # if norm:
-    #     mom /= mom.shape[-ndim-1:-1].numel()
     return mom
+
+
+def flow_upsample2(coeff, order, bound='dft', **kwargs):
+    """
+    Upsample spline coefficients of a flow by a factor 2, while
+    minimizing the continuous MSE
+
+    Parameters
+    ----------
+    coeff : (*batch, *spatial, ndim) tensor
+        Spline coefficients of the flow
+    order : [list of] int
+        Spline order
+    bound : [list of] str
+        Boundary condition. For now, MUST be `"dft"`
+
+    Returns
+    -------
+    upcoeff : tensor
+        Upsampled spline coefficients of the flow
+        Values are also multiplied by 2.
+    """
+    ndim = coeff.shape[-1]
+    coeff = movedim1(coeff, -1, 0)
+    coeff = coeff_upsample2(coeff, order, ndim, bound)
+    coeff = movedim1(coeff, 0, -1)
+    coeff *= 2
+    return coeff
+
+
+def coeff_upsample2(coeff, order, ndim=1, bound='dft', **kwargs):
+    """
+    Upsample spline coefficients by a factor 2, while minimizing the
+    continuous MSE
+
+    Parameters
+    ----------
+    coeff : tensor
+        Spline coefficients
+    order : [list of] int
+        Spline order
+    ndim : int
+        The last `ndim` dimension(s) are upsampled
+    bound : [list of] str
+        Boundary condition. For now, MUST be `"dft"`
+
+    Returns
+    -------
+    upcoeff : tensor
+        Upsampled spline coefficients
+    """
+    bound = to_fourier(make_list(bound, ndim))
+    if any([b != 'dft' for b in bound]):
+        raise ValueError('Boundary condition must be dft')
+    order = make_list(order, ndim)
+    conv = getattr(F, f'conv{ndim}d')
+
+    # get 1D kernels
+    FF, EE, OO, PE, PO = 1, [], [], [], []
+    for d, o in enumerate(order):
+        FF1, EE1, OO1 = make_upkernels1d(
+            o, dtype=coeff.dtype, device=coeff.device)
+        for _ in range(d):
+            FF1 = FF1[..., None]
+            EE1 = EE1[..., None]
+            OO1 = OO1[..., None]
+        FF = FF * FF1
+        EE += [EE1]
+        OO += [OO1]
+        PE += [len(OO1) // 2]
+        PO += [len(OO1) - PE[-1] - 1]
+
+    # permute/reshape
+    batch = coeff.shape[:-1]
+    coeff0 = coeff.reshape((-1, 1) + coeff.shape[-ndim:])
+    upshape = coeff0.shape[:-1] + tuple(2*s for s in coeff0.shape[-ndim:])
+    coeff = coeff0.new_empty(upshape)
+
+    for is_odd in itertools.product([True, False], repeat=ndim):
+        # convolve with (smallspline * bigspline)
+        #   odd and even voxels have different (inverted) kernels
+        kernel = 1
+        slicer = []
+        padsize = []
+        for d in range(ndim):
+            kernel = kernel * (OO[d] if is_odd[d] else EE[d])
+            padsize.extend((PO[d], PE[d]) if is_odd[d] else (PE[d], PO[d]))
+            slicer += [slice(1, None, 2) if is_odd[d] else slice(0, -1, 2)]
+        coeff_conv = pad(coeff0, padsize, bound)
+        coeff_conv = conv(coeff_conv, kernel[None, None])
+        coeff[(Ellipsis, *slicer)] = coeff_conv
+
+    # permute/reshape
+    coeff = coeff.reshape(batch + coeff.shape[-ndim:])
+
+    # Fourier inversion
+    lastdims = list(range(-ndim, 0))
+    FF = ensure_shape(FF, coeff.shape[-ndim:], side='both', ceil=True)
+    FF = torch.fft.fftn(torch.fft.ifftshift(FF))
+    coeff = torch.fft.fftn(coeff, dim=lastdims) / FF
+    coeff = torch.fft.ifftn(coeff, dim=lastdims).real
+
+    return coeff
 
 
 # ======================================================================
@@ -478,6 +583,33 @@ def make_evalkernels1d(order, dtype=torch.double, device=None):
     HH = torch.as_tensor(HH, dtype=dtype, device=device)
     FG = torch.as_tensor(FG, dtype=dtype, device=device)
     return FF, GG, HH, FG
+
+
+# ======================================================================
+# Build convolution kernels for x2 upsampling
+# ======================================================================
+
+
+def make_upcorrs_x2_order3():
+    return [1/5160960, 69379/5160960, 835637/2580480,
+            1451347/2580480, 515429/5160960, 2183/5160960]
+
+
+upcorrs = {
+    (2, 3): make_upcorrs_x2_order3()
+}
+
+
+def make_upkernels1d(order, factor=2, dtype=torch.double, device=None):
+    """Build 1D upsampling kernels"""
+    FF, *_ = corrs[order]
+    EE = upcorrs[(factor, order)]
+    OO = EE[::-1]
+    FF = FF[1:][::-1] + FF
+    FF = torch.as_tensor(FF, dtype=dtype, device=device)
+    EE = torch.as_tensor(EE, dtype=dtype, device=device)
+    OO = torch.as_tensor(OO, dtype=dtype, device=device)
+    return FF, EE, OO
 
 
 # ======================================================================
@@ -994,3 +1126,336 @@ def make_div_kernel_fd(ndim, voxel_size=None, norm=False, **backend):
     if norm:
         K /= norm
     return K
+
+
+# ======================================================================
+# Tools to perform symbolic computations on piecewise polynomials
+# ======================================================================
+
+# Piecewise polynomial representation of each b-spline
+# - Coefficients are ordered from lowest to highest order.
+# - Conditions are the (noninclusive) upper bound of the domain
+# - True means +inf
+bsplines_poly = [
+    # order 0
+    [([R(0, 1)], R(-1, 2)),
+     ([R(1, 1)], R(1, 2)),
+     ([R(0, 1)], True)],
+    # order 1
+    [([R(0, 1)], R(-1, 1)),
+     ([R(1, 1), R(1, 1)], R(0, 1)),
+     ([R(1, 1), R(-1, 1)], R(1, 1)),
+     ([R(0, 1)], True)],
+    # order 2
+    [([R(0, 1)], R(-3, 2)),
+     ([R(9, 8), R(3, 2), R(1, 2)], R(-1, 2)),
+     ([R(3, 4), R(0, 1), R(-1, 1)], R(1, 2)),
+     ([R(9, 8), R(-3, 2), R(1, 2)], R(3, 2)),
+     ([R(0, 1)], True)],
+    # order 3
+    [([R(0, 1)], R(-2, 1)),
+     ([R(4, 3), R(2, 1), R(1, 1), R(1, 6)], R(-1, 1)),
+     ([R(2, 3), R(0, 1), R(-1, 1), R(-1, 2)], R(0, 1)),
+     ([R(2, 3), R(0, 1), R(-1, 1), R(1, 2)], R(1, 1)),
+     ([R(4, 3), R(-2, 1), R(1, 1), R(-1, 6)], R(2, 1)),
+     ([R(0, 1)], True)],
+    # order 4
+    [([R(0, 1)], R(-5, 2)),
+     ([R(625, 384), R(125, 48), R(25, 16), R(5, 12), R(1, 24)], R(-3, 2)),
+     ([R(55, 96), R(-5, 24), R(-5, 4), R(-5, 6), R(-1, 6)], R(-1, 2)),
+     ([R(115, 192), R(0, 1), R(-5, 8), R(0, 1), R(1, 4)], R(1, 2)),
+     ([R(55, 96), R(5, 24), R(-5, 4), R(5, 6), R(-1, 6)], R(3, 2)),
+     ([R(625, 384), R(-125, 48), R(25, 16), R(-5, 12), R(1, 24)], R(5, 2)),
+     ([R(0, 1)], True)],
+    # order 5
+    [([R(0, 1)], R(-3, 1)),
+     ([R(81, 40), R(27, 8), R(9, 4), R(3, 4), R(1, 8), R(1, 120)], R(-2, 1)),
+     ([R(17, 40), R(-5, 8), R(-7, 4), R(-5, 4), R(-3, 8), R(-1, 24)], R(-1, 1)),  # noqa: E501
+     ([R(11, 20), R(0, 1), R(-1, 2), R(0, 1), R(1, 4), R(1, 12)], R(0, 1)),
+     ([R(11, 20), R(0, 1), R(-1, 2), R(0, 1), R(1, 4), R(-1, 12)], R(1, 1)),
+     ([R(17, 40), R(5, 8), R(-7, 4), R(5, 4), R(-3, 8), R(1, 24)], R(2, 1)),
+     ([R(81, 40), R(-27, 8), R(9, 4), R(-3, 4), R(1, 8), R(-1, 120)], R(3, 1)),
+     ([R(0, 1)], True)],
+    # order 6
+    [([R(0, 1)], R(-7, 2)),
+     ([R(117649, 46080), R(16807, 3840), R(2401, 768), R(343, 288),
+       R(49, 192), R(7, 240), R(1, 720)], R(-5, 2)),
+     ([R(1379, 7680), R(-1267, 960), R(-329, 128), R(-133, 72),
+       R(-21, 32), R(-7, 60), R(-1, 120)], R(-3, 2)),
+     ([R(7861, 15360), R(7, 768), R(-91, 256), R(35, 288),
+       R(21, 64), R(7, 48), R(1, 48)], R(-1, 2)),
+     ([R(5887, 11520), R(0, 1), R(-77, 192), R(0, 1),
+       R(7, 48), R(0, 1), R(-1, 36)], R(1, 2)),
+     ([R(7861, 15360), R(-7, 768), R(-91, 256), R(-35, 288),
+       R(21, 64), R(-7, 48), R(1, 48)], R(3, 2)),
+     ([R(1379, 7680), R(1267, 960), R(-329, 128), R(133, 72),
+       R(-21, 32), R(7, 60), R(-1, 120)], R(5, 2)),
+     ([R(117649, 46080), R(-16807, 3840), R(2401, 768), R(-343, 288),
+       R(49, 192), R(-7, 240), R(1, 720)], R(7, 2)),
+     ([R(0, 1)], True)],
+    # order 7
+    [([R(0, 1)], R(-4, 1)),
+     ([R(1024, 315), R(256, 45), R(64, 15), R(16, 9),
+       R(4, 9), R(1, 15), R(1, 180), R(1, 5040)], R(-3, 1)),
+     ([R(-139, 630), R(-217, 90), R(-23, 6), R(-49, 18),
+       R(-19, 18), R(-7, 30), R(-1, 36), R(-1, 720)], R(-2, 1)),
+     ([R(103, 210), R(7, 90), R(-1, 10), R(7, 18),
+       R(1, 2), R(7, 30), R(1, 20), R(1, 240)], R(-1, 1)),
+     ([R(151, 315), R(0, 1), R(-1, 3), R(0, 1),
+       R(1, 9), R(0, 1), R(-1, 36), R(-1, 144)], R(0, 1)),
+     ([R(151, 315), R(0, 1), R(-1, 3), R(0, 1),
+       R(1, 9), R(0, 1), R(-1, 36), R(1, 144)], R(1, 1)),
+     ([R(103, 210), R(-7, 90), R(-1, 10), R(-7, 18),
+       R(1, 2), R(-7, 30), R(1, 20), R(-1, 240)], R(2, 1)),
+     ([R(-139, 630), R(217, 90), R(-23, 6), R(49, 18),
+       R(-19, 18), R(7, 30), R(-1, 36), R(1, 720)], R(3, 1)),
+     ([R(1024, 315), R(-256, 45), R(64, 15), R(-16, 9),
+       R(4, 9), R(-1, 15), R(1, 180), R(-1, 5040)], R(4, 1)),
+     ([R(0, 1)], True)],
+]
+
+
+def poly_eq(p, q):
+    """Check that two polynomials are equal"""
+    n = max(len(p), len(q))
+    p = make_list(p, n, default=0)
+    q = make_list(q, n, default=0)
+    return all(pi == qj for pi, qj in zip(p, q))
+
+
+def poly_prod(p, q):
+    """Product of two polynomials"""
+    new_poly = [0] * (len(p) + len(q) - 1)
+    for i, pi in enumerate(p):
+        for j, qj in enumerate(q):
+            new_poly[i+j] = new_poly[i+j] + pi * qj
+    return new_poly
+
+
+def poly_sum(p, q):
+    """Sum of two polynomials"""
+    new_poly = [0] * max(len(p), len(q))
+    for i, fi in enumerate(p):
+        new_poly[i] += fi
+    for j, gj in enumerate(q):
+        new_poly[j] += gj
+    return new_poly
+
+
+def poly_eval(p, x):
+    """Evaluate P(x)"""
+    value, xn = p[0], x
+    for v in p[1:]:
+        value += v * xn
+        xn = xn * x
+    return value
+
+
+def poly_diff(p, n=1):
+    """Differentiate a polynomial: P'(x)"""
+    if n == 0:
+        return p
+    if n > 1:
+        for _ in range(n):
+            p = poly_diff(p)
+        return p
+    if len(p) == 1:
+        return [0]
+    assert n == 1
+    new_poly = [
+        (k+1) * v for k, v in enumerate(p[1:])
+    ]
+    return new_poly
+
+
+def poly_integral(p, minlim=-float('inf'), maxlim=float('inf')):
+    r"""Integrate a polynomial: \int_a^b P(x) dx"""
+    if minlim > maxlim:
+        return -poly_integral(p, maxlim, minlim)
+    elif minlim == maxlim:
+        return 0
+    q = [0] + [R(v, k+1) for k, v in enumerate(p)]
+    # drop trailing zeros
+    while q and q[-1] == 0:
+        q = q[:-1]
+    if not q:
+        return 0
+    leading_sign = -1 if q[-1] < 0 else 1
+    # special cases: infinite domains
+    if minlim == -float('inf') and maxlim == float('inf'):
+        return 0 if len(q) % 2 else float('inf') * leading_sign
+    elif maxlim == float('inf'):
+        return float('inf') * leading_sign
+    elif minlim == -float('inf'):
+        return float('inf') * leading_sign * (-1 if len(q) % 2 else 1)
+    # finite domain
+    return poly_eval(q, maxlim) - poly_eval(q, minlim)
+
+
+def poly_outershift(p, delta):
+    """P(x) + delta"""
+    g = list(p)
+    g[0] = g[0] + delta
+    return g
+
+
+def poly_outerscale(p, alpha):
+    """P(x) * alpha"""
+    return [v * alpha for v in p]
+
+
+def poly_innershift(p, delta):
+    """P(x + delta)"""
+    q = p
+    while True:
+        if len(p) == 1 and p[0] == 0:
+            break
+        p = poly_outerscale(poly_diff(p), delta)
+        q = poly_sum(q, p)
+    return q
+
+
+def poly_innerscale(p, alpha):
+    """P(x * alpha)"""
+    return [v * (alpha**k) for k, v in enumerate(p)]
+
+
+def piecewise_poly_prod(p, q):
+    """P(x)  * Q(x) """
+    return piecewise_poly_op(p, q, poly_prod)
+
+
+def piecewise_poly_sum(p, q):
+    """P(x)  + Q(x) """
+    return piecewise_poly_op(p, q, poly_sum)
+
+
+def piecewise_poly_outershift(p, delta):
+    """P(x) + delta"""
+    return [(poly_outershift(pi, delta), ci) for pi, ci in p]
+
+
+def piecewise_poly_outerscale(p, alpha):
+    """P(x) * alpha"""
+    return [(poly_outerscale(pi, alpha), ci) for pi, ci in p]
+
+
+def piecewise_poly_innershift(p, delta):
+    """P(x + delta)"""
+    return [(poly_innershift(pi, delta), True if ci is True else ci + delta)
+            for pi, ci in p]
+
+
+def piecewise_poly_innerscale(p, alpha):
+    """P(x * alpha)"""
+    return [(poly_innerscale(pi, alpha), True if ci is True else ci * alpha)
+            for pi, ci in p]
+
+
+def piecewise_poly_integral(p, minlim=-float('inf'), maxlim=float('inf')):
+    """Integrate P"""
+    if minlim > maxlim:
+        return -poly_integral(p, maxlim, minlim)
+    elif minlim == maxlim:
+        return 0
+    if minlim > -float('inf') and maxlim < float('inf'):
+        p = piecewise_poly_prod(p, [([0], minlim), ([1], maxlim), ([0], True)])
+    elif minlim > -float('inf'):
+        p = piecewise_poly_prod(p, [([0], minlim), ([1], True)])
+    elif maxlim < float('inf'):
+        p = piecewise_poly_prod(p, [([1], maxlim), ([0], True)])
+    value = 0
+    minlim = -float('inf')
+    for pi, maxlim in p:
+        if maxlim is True:
+            maxlim = float('inf')
+        value1 = poly_integral(pi, minlim, maxlim)
+        value += value1
+        minlim = maxlim
+    return value
+
+
+def piecewise_poly_op(f, g, op):
+    """
+    Pointwise operation between two piecewise polynomials,
+    whose conditions are of the form `x < number`.
+    """
+    fargs, gargs = list(f), list(g)
+    args = []
+    while True:
+        if fargs and not isinstance(fargs[0][1], bool):
+            farg = (fargs[0][0], fargs[0][1])
+            flim = float(farg[1])
+            if gargs and not isinstance(gargs[0][1], bool):
+                garg = (gargs[0][0], gargs[0][1])
+                glim = float(garg[1])
+                if flim < glim:
+                    arg = (op(farg[0], garg[0]), farg[1])
+                    if args and poly_eq(arg[0], args[-1][0]):
+                        args.pop(-1)
+                    args.append(arg)
+                    fargs.pop(0)
+                    continue
+                if glim < flim:
+                    arg = (op(farg[0], garg[0]), garg[1])
+                    if args and poly_eq(arg[0], args[-1][0]):
+                        args.pop(-1)
+                    args.append(arg)
+                    gargs.pop(0)
+                    continue
+                assert flim == glim
+                arg = (op(farg[0], garg[0]), farg[1])
+                if args and poly_eq(arg[0], args[-1][0]):
+                    args.pop(-1)
+                args.append(arg)
+                fargs.pop(0)
+                gargs.pop(0)
+                continue
+            elif gargs:
+                arg = (op(farg[0], gargs[0][0]), farg[1])
+                if args and poly_eq(arg[0], args[-1][0]):
+                    args.pop(-1)
+                args.append(arg)
+                fargs.pop(0)
+                continue
+            else:
+                if args and poly_eq(farg[0], args[-1][0]):
+                    args.pop(-1)
+                args.append(farg)
+                fargs.pop(0)
+                continue
+        elif gargs and not isinstance(gargs[0][1], bool):
+            garg = (gargs[0][0], gargs[0][1])
+            if fargs:
+                arg = (op(fargs[0][0], garg[0]), garg[1])
+                if args and poly_eq(arg[0], args[-1][0]):
+                    args.pop(-1)
+                args.append(arg)
+                gargs.pop(0)
+                continue
+            else:
+                if args and poly_eq(garg[0], args[-1][0]):
+                    args.pop(-1)
+                args.append(garg)
+                gargs.pop(0)
+                continue
+        elif fargs and gargs:
+            arg = (op(fargs[0][0], gargs[0][0]), fargs[0][1])
+            if args and poly_eq(arg[0], args[-1][0]):
+                args.pop(-1)
+            args.append(arg)
+            fargs.pop(0)
+            gargs.pop(0)
+            continue
+        elif fargs:
+            if args and poly_eq(fargs[0][0], args[-1][0]):
+                args.pop(-1)
+            args.append(fargs.pop(0))
+            continue
+        elif gargs:
+            if args and poly_eq(gargs[0][0], args[-1][0]):
+                args.pop(-1)
+            args.append(gargs.pop(0))
+            continue
+        break
+    return args

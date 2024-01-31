@@ -1,4 +1,5 @@
 import torch
+import math
 from . import bounds
 from .jit_utils import meshgrid_ij, sub2ind_list
 from .utils import prod, make_list
@@ -136,7 +137,8 @@ def _pad_bound(inp, padpre, padpost, bound):
     return out
 
 
-def ensure_shape(inp, shape, mode='constant', value=0, side='post'):
+def ensure_shape(inp, shape, mode='constant', value=0, side='post',
+                 ceil=False):
     """Pad/crop a tensor so that it has a given shape
 
     Parameters
@@ -169,10 +171,12 @@ def ensure_shape(inp, shape, mode='constant', value=0, side='post'):
              for d in range(len(shape))]
     ndim = len(shape)
 
+    half = (lambda x: int(math.ceil(x/2))) if ceil else (lambda x: x//2)
+
     # crop
     if side == 'both':
         crop = [max(0, inshape[d] - shape[d]) for d in range(ndim)]
-        index = tuple(slice(c//2, (c//2 - c) or None) for c in crop)
+        index = tuple(slice(half(c), (half(c) - c) or None) for c in crop)
     elif side == 'pre':
         crop = [max(0, inshape[d] - shape[d]) for d in range(ndim)]
         index = tuple(slice(-c or None) for c in crop)
@@ -183,7 +187,7 @@ def ensure_shape(inp, shape, mode='constant', value=0, side='post'):
     # pad
     pad_size = [max(0, shape[d] - inshape[d]) for d in range(ndim)]
     if side == 'both':
-        pad_size = [[p//2, p-p//2] for p in pad_size]
+        pad_size = [[half(p), p-half(p)] for p in pad_size]
         pad_size = [q for p in pad_size for q in p]
         side = None
     inp = pad(inp, tuple(pad_size), mode=mode, value=value, side=side)

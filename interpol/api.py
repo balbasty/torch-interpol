@@ -1,11 +1,14 @@
 """High level interpolation API"""
-__all__ = ['grid_pull', 'grid_push', 'grid_count', 'grid_grad',
+__all__ = ['grid_pull', 'grid_push', 'grid_count', 'grid_grad', 'grid_hess',
            'spline_coeff', 'spline_coeff_nd', 'spline_coeff_nd_',
            'identity_grid', 'add_identity_grid', 'add_identity_grid_',
            'sub_identity_grid', 'sub_identity_grid_']
 import torch
-from .utils import matvec
+from .utils import matvec, make_list
 from .jit_utils import movedim1, meshgrid
+from .bounds import to_int as bound_to_int
+from .splines import to_int as inter_to_int
+from .pushpull import grid_hess as _grid_hess
 from .autograd import (GridPull, GridPush, GridCount, GridGrad,
                        SplineCoeff, SplineCoeffND)
 from . import backend, jitfields
@@ -139,12 +142,15 @@ def _preproc(grid, input=None, mode=None):
 def _postproc(out, shape_info, mode):
     """Postprocess tensors for pull/push/count/grad"""
     dim = shape_info['dim']
-    if mode != 'grad':
+    if mode == 'hess':
+        spatial = out.shape[-dim-2:-2]
+        feat = out.shape[-2:]
+    elif mode == 'grad':
+        spatial = out.shape[-dim-1:-1]
+        feat = out.shape[-1:]
+    else:
         spatial = out.shape[-dim:]
         feat = []
-    else:
-        spatial = out.shape[-dim-1:-1]
-        feat = [out.shape[-1]]
     batch = shape_info['batch']
     channel = shape_info['channel']
 
@@ -315,8 +321,6 @@ def grid_grad(input, grid, interpolation='linear', bound='zero',
         Input image.
     grid : (..., *inshape, dim) tensor
         Transformation field.
-    shape : sequence[int], default=inshape
-        Output shape
     interpolation : int or sequence[int], default=1
         Interpolation order.
     bound : BoundType, or sequence[BoundType], default='zero'
@@ -342,6 +346,54 @@ def grid_grad(input, grid, interpolation='linear', bound='zero',
         input = spline_coeff_nd(input, interpolation, bound, dim)
     out = GridGrad.apply(input, grid, interpolation, bound, extrapolate)
     return _postproc(out, shape_info, mode='grad')
+
+
+def grid_hess(input, grid, interpolation='linear', bound='zero',
+              extrapolate=False, prefilter=False):
+    """
+    Sample spatial gradients of an image with respect to a deformation field.
+
+    !!! warning "Not automatically differentiable!"
+
+    {interpolation}
+    {bound}
+
+    Parameters
+    ----------
+    input : (..., [channel], *inshape) tensor
+        Input image.
+    grid : (..., *inshape, dim) tensor
+        Transformation field.
+    interpolation : int or sequence[int], default=1
+        Interpolation order.
+    bound : BoundType, or sequence[BoundType], default='zero'
+        Boundary conditions.
+    extrapolate : bool or int, default=True
+        Extrapolate out-of-bound data.
+    prefilter : bool, default=False
+        Apply spline pre-filter (= interpolates the input)
+
+    Returns
+    -------
+    output : (..., [channel], *shape, dim) tensor
+        Sampled gradients.
+
+    """
+    if backend.jitfields and jitfields.available:
+        return jitfields.grid_grad(input, grid, interpolation, bound,
+                                   extrapolate, prefilter)
+
+    grid, input, shape_info = _preproc(grid, input)
+    dim = grid.shape[-1]
+    if prefilter:
+        input = spline_coeff_nd(input, interpolation, bound, dim)
+
+    bound = bound_to_int(make_list(bound))
+    interpolation = inter_to_int(make_list(interpolation))
+    extrapolate = int(extrapolate)
+
+    out = _grid_hess(input, grid, bound, interpolation, extrapolate)
+    return _postproc(out, shape_info, mode='hess')
 
 
 def spline_coeff(input, interpolation='linear', bound='dct2', dim=-1,
