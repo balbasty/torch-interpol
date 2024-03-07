@@ -50,7 +50,7 @@ class GridPull(nn.Module):
         return dict(
             interpolation=self.interpolation,
             bound=self.bound,
-            extrapoalte=self.extrapolate,
+            extrapolate=self.extrapolate,
             prefilter=self.prefilter,
         )
 
@@ -153,7 +153,7 @@ class GridPush(nn.Module):
         return dict(
             interpolation=self.interpolation,
             bound=self.bound,
-            extrapoalte=self.extrapolate,
+            extrapolate=self.extrapolate,
             prefilter=self.prefilter,
         )
 
@@ -292,7 +292,7 @@ class Resize(nn.Module):
             anchor=self.anchor,
             interpolation=self.interpolation,
             bound=self.bound,
-            extrapoalte=self.extrapolate,
+            extrapolate=self.extrapolate,
             prefilter=self.prefilter,
         )
 
@@ -315,7 +315,7 @@ class Resize(nn.Module):
         output : (batch, channel, *shape)
             Resized image
         """
-        options = self.options
+        options = self._options
         options.update(kwargs)
         return resize(input, **options)
 
@@ -425,7 +425,7 @@ class Restrict(nn.Module):
         output : (batch, channel, *shape)
             Restricted image
         """
-        options = self.options
+        options = self._options
         options.update(kwargs)
         return restrict(input, **options)
 
@@ -495,7 +495,7 @@ class ValueToCoeff(nn.Module):
             Boundary conditions.
         """
         super().__init__()
-        self.interpolation = interpolation
+        self.interpolation = interpolation if interpolation != 'fd' else 1
         self.bound = bound
 
     @property
@@ -544,7 +544,7 @@ class CoeffToValue(nn.Module):
             Boundary conditions.
         """
         super().__init__()
-        self.interpolation = interpolation
+        self.interpolation = interpolation if interpolation != 'fd' else 1
         self.bound = bound
 
     @property
@@ -570,7 +570,7 @@ class CoeffToValue(nn.Module):
         """
         grid = api.identity_grid(
             input.shape[2:], dtype=input.dtype, device=input.device)
-        return api.grid_pull(input, grid, **self.options)
+        return api.grid_pull(input, grid, **self._options)
 
 
 class FlowExp(nn.Module):
@@ -710,7 +710,8 @@ class FlowMomentum(nn.Module):
             div=self.div,
             shears=self.shears,
             norm=self.norm,
-            order=inter_to_int(self.interpolation),
+            order=inter_to_int(self.interpolation)
+            if self.interpolation != 'fd' else self.interpolation,
             bound=self.bound,
         )
 

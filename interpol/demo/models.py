@@ -19,9 +19,11 @@ class VoxelMorph(nn.Sequential):
         """
         Conv = getattr(nn, f'Conv{ndim}d')
         nf = unet_parameters.get('nb_features', 16)
-        super.__init__(
+        unet_parameters.setdefault('nb_levels', 5)
+        unet_parameters.setdefault('activation', 'LeakyReLU')
+        super().__init__(
             Conv(2, nf, kernel_size=[3]*ndim, padding='same'),
-            UNet(**unet_parameters),
+            UNet(ndim, **unet_parameters),
             Conv(nf, ndim, kernel_size=[1]*ndim),
         )
 
@@ -64,8 +66,9 @@ class PyramidMorph(nn.Module):
         Conv = getattr(nn, f'Conv{ndim}d')
         nf = unet_parameters.get('nb_features', 16)
         np = unet_parameters.get('nb_levels', 3)
+        unet_parameters.setdefault('nb_levels', 5)
         self.features = Conv(2, nf, kernel_size=[3]*ndim, padding='same')
-        self.unet = UNet(**unet_parameters)
+        self.unet = UNet(ndim, **unet_parameters)
         self.toflow = nn.ModuleList([
             Conv(nf, ndim, kernel_size=[1]*ndim) for _ in range(np)
         ])

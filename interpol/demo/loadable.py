@@ -25,7 +25,7 @@ class LoadableModule(torch.nn.Module):
             **more_stuff,
         )
         if fname:
-            torch.saveckpt(ckpt, fname)
+            torch.save(ckpt, fname)
         return ckpt
 
     def load_checkpoint(self, ckpt):

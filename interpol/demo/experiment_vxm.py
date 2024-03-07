@@ -18,7 +18,7 @@ class VxmTrainer(LoadableModule):
             nb_epochs=5,  # 200*200 trainig pairs -> 200,000 steps
             lr=1e-4,
             save_every=1,
-            lam=0.1,
+            lam=0.001,
             batch_size=4,
             device=None,
     ):
@@ -64,6 +64,8 @@ class VxmTrainer(LoadableModule):
         self.best_loss = more_stuff['best_loss']
 
     def train(self):
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
 
         for self.epoch in range(self.epoch, self.nb_epochs):
 
@@ -76,7 +78,7 @@ class VxmTrainer(LoadableModule):
                 flow = self.tovalue(flow)
                 moved = self.pull(mov, flow)
                 sim = self.loss(moved, fix)
-                loss = sim + reg
+                loss = sim + self.lam * reg
 
                 self.optim.zero_grad()
                 loss.backward()
@@ -87,8 +89,23 @@ class VxmTrainer(LoadableModule):
 
                 if batch % 400 == 0 or batch == len(self.trainset) - 1:
                     print(f'{self.epoch:02d} | train | {batch:05d} | '
-                          f'{sim:6.3f} + {reg:6.3f} = {loss:6.3f} '
-                          f'(epoch average: {avg_loss:6.3f})', end='\r')
+                          f'{sim:6.3g} + {self.lam:g} * {reg:6.3g} = {loss:6.3g} '
+                          f'(epoch average: {avg_loss:6.3g})', end='\r')
+                    plt.clf()
+                    plt.gcf()
+                    plt.subplot(2, 2, 1)
+                    plt.imshow(fix[0, 0].detach().cpu())
+                    plt.axis('off')
+                    plt.subplot(2, 2, 2)
+                    plt.imshow(mov[0, 0].detach().cpu())
+                    plt.axis('off')
+                    plt.subplot(2, 2, 3)
+                    plt.imshow(flow[0].detach().square().sum(0).sqrt().cpu())
+                    plt.axis('off')
+                    plt.subplot(2, 2, 4)
+                    plt.imshow(moved[0, 0].detach().cpu())
+                    plt.axis('off')
+                    plt.show(block=False)
             print('')
 
             self.model.eval()
@@ -108,8 +125,8 @@ class VxmTrainer(LoadableModule):
 
                     if batch % 400 == 0 or batch == len(self.trainset) - 1:
                         print(f'{self.epoch:02d} | eval  | {batch:05d} | '
-                              f'{sim:6.3f} + {reg:6.3f} = {loss:6.3f} '
-                              f'(epoch average: {avg_loss:6.3f})', end='\r')
+                              f'{sim:6.3g} + {self.lam:g} * {reg:6.3g} = {loss:6.3g} '
+                              f'(epoch average: {avg_loss:6.3g})', end='\r')
             print('')
 
             if self.epoch % self.save_every == 0:
@@ -162,7 +179,7 @@ if __name__ == "__main__":
     parser.add_argument('--nb-epochs', type=int, default=5)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--save-every', type=int, default=1)
-    parser.add_argument('--lam', type=float, default=0.1)
+    parser.add_argument('--lam', type=float, default=0.001)
     parser.add_argument('--batch-size', type=int, default=4)
     parser.add_argument('--device', default=None)
     parser.add_argument('--checkpoint', default='')

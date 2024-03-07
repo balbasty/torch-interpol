@@ -60,19 +60,19 @@ class UNet(nn.Module):
 
         make_inp = partial(
             layers.ConvBlockIn,
-            ndim=ndim,
+            ndim,
             activation=activation,
             nb_conv=nb_conv_per_level,
         )
         make_down = partial(
             DownKlass,
-            ndim=ndim,
+            ndim,
             activation=activation,
             nb_conv=nb_conv_per_level,
         )
         make_up = partial(
             UpKlass,
-            ndim=ndim,
+            ndim,
             activation=activation,
             nb_conv=nb_conv_per_level,
         )
@@ -85,12 +85,13 @@ class UNet(nn.Module):
             downpath += [make_down(F[i-1], F[i])]
         F.reverse()
         uppath = []
-        for i in range(nb_levels):
+        for i in range(nb_levels-1):
             uppath += [make_up(F[i], F[i+1])]
 
         super().__init__()
         self.downpath = nn.Sequential(*downpath)
         self.uppath = nn.Sequential(*uppath)
+        print(self)
 
     def forward(self, inp, return_pyramid=False):
         """

@@ -453,7 +453,7 @@ class ConvUpResize(nn.Sequential):
         """
         out_channels = out_channels or inp_channels
         if skip_channels is True:
-            skip_channels = inp_channels
+            skip_channels = out_channels
         elif skip_channels is False:
             skip_channels = 0
         Activation = getattr(nn, activation)

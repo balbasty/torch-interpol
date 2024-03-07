@@ -20,7 +20,7 @@ class PairedDataset(Dataset):
         self.fnames = fnames
 
     def __len__(self):
-        return len(self.fnames) * 2
+        return len(self.fnames) ** 2
 
     def __getitem__(self, index):
         i, j = index // len(self.fnames), index % len(self.fnames)
@@ -31,6 +31,8 @@ class PairedDataset(Dataset):
         mov = torch.as_tensor(
             nib.load(mov).get_fdata(dtype='float32').squeeze()[None]
         )
+        fix /= fix.max()
+        mov /= mov.max()
         return fix, mov
 
 
@@ -39,7 +41,6 @@ vxm_oasis = list(sorted(glob.glob(
     f'{vxm_folder}/OASIS_*/norm_talairach_slice.mgz'
 )))
 
-
 vxm_oasis_train = PairedDataset(vxm_oasis, subset=slice(200))
 vxm_oasis_eval = PairedDataset(vxm_oasis, subset=slice(200, 300))
-vxm_oasis_test = PairedDataset(vxm_oasis, subset=slice(300, 457))
+vxm_oasis_test = PairedDataset(vxm_oasis, subset=slice(300, None))
