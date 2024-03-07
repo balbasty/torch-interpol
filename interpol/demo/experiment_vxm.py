@@ -128,7 +128,7 @@ class VxmTrainer(LoadableModule):
                 flow = self.tovalue(flow)
                 moved = self.pull(mov, flow)
                 sim = self.loss(moved, fix)
-                loss = sim + reg
+                loss = sim + self.lam * reg
 
                 loss, sim, reg = loss.item(), sim.item(), reg.item()
                 avg_loss = (batch * avg_loss + loss) / (batch + 1)

@@ -23,7 +23,6 @@ class VoxelMorph(nn.Sequential):
         unet_parameters.setdefault('nb_levels', 5)
         unet_parameters.setdefault('nb_features', [16, 16, 32, 32, 32])
         unet_parameters.setdefault('activation', 'LeakyReLU')
-        unet_parameters.setdefault('nb_conv_per_level', 1)
         super().__init__(
             Conv(2, nf, kernel_size=[3]*ndim, padding='same'),
             UNet(ndim, **unet_parameters),
