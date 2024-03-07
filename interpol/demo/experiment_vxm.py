@@ -131,7 +131,7 @@ class VxmTrainer(LoadableModule):
                 loss, sim, reg = loss.item(), sim.item(), reg.item()
                 avg_loss = (batch * avg_loss + loss) / (batch + 1)
 
-                if batch % 400 == 0 or batch == len(self.trainset) - 1:
+                if batch % 400 == 0 or batch == len(self.evalset) - 1:
                     print(f'{self.epoch:02d} | eval  | {batch:05d} | '
                           f'{sim:8.3g} + {self.lam:g} * {reg:8.3g} ',
                           f'= {loss:8.3g} '
@@ -178,7 +178,7 @@ class VxmTrainer(LoadableModule):
                 loss, sim, reg = loss.item(), sim.item(), reg.item()
                 avg_loss = (batch * avg_loss + loss) / (batch + 1)
 
-                if batch % 400 == 0 or batch == len(self.trainset) - 1:
+                if batch % 400 == 0 or batch == len(self.testset) - 1:
                     print(f'{self.epoch:02d} | test  | {batch:05d} | '
                           f'{sim:6.3f} + {reg:6.3f} = {loss:6.3f} '
                           f'(average: {avg_loss:6.3f})', end='\r')
