@@ -107,7 +107,10 @@ class FlowPull(GridPull):
         output : (batch, channel, *outshape) tensor
             Deformed image.
         """
-        return super().forward(input, api.add_identity_grid(flow))
+        flow = movedim1(flow, 1, -1)
+        flow = api.add_identity_grid(flow)
+        flow = movedim1(flow, -1, 1)
+        return super().forward(input, flow)
 
 
 class GridPush(nn.Module):
@@ -202,7 +205,10 @@ class FlowPush(GridPush):
         output : (batch, channel, *shape) tensor
             Deformed image.
         """
-        return super().forward(input, api.add_identity_grid(flow), shape)
+        flow = movedim1(flow, 1, -1)
+        flow = api.add_identity_grid(flow)
+        flow = movedim1(flow, -1, 1)
+        return super().forward(input, flow, shape)
 
 
 class Resize(nn.Module):

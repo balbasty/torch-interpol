@@ -64,8 +64,8 @@ class VxmTrainer(LoadableModule):
         self.best_loss = more_stuff['best_loss']
 
     def train(self):
-        import matplotlib.pyplot as plt
-        fig = plt.figure()
+        # import matplotlib.pyplot as plt
+        # fig = plt.figure()
 
         for self.epoch in range(self.epoch, self.nb_epochs):
 
@@ -91,21 +91,21 @@ class VxmTrainer(LoadableModule):
                     print(f'{self.epoch:02d} | train | {batch:05d} | '
                           f'{sim:6.3g} + {self.lam:g} * {reg:6.3g} = {loss:6.3g} '
                           f'(epoch average: {avg_loss:6.3g})', end='\r')
-                    plt.clf()
-                    plt.gcf()
-                    plt.subplot(2, 2, 1)
-                    plt.imshow(fix[0, 0].detach().cpu())
-                    plt.axis('off')
-                    plt.subplot(2, 2, 2)
-                    plt.imshow(mov[0, 0].detach().cpu())
-                    plt.axis('off')
-                    plt.subplot(2, 2, 3)
-                    plt.imshow(flow[0].detach().square().sum(0).sqrt().cpu())
-                    plt.axis('off')
-                    plt.subplot(2, 2, 4)
-                    plt.imshow(moved[0, 0].detach().cpu())
-                    plt.axis('off')
-                    plt.show(block=False)
+                    # plt.clf()
+                    # plt.gcf()
+                    # plt.subplot(2, 2, 1)
+                    # plt.imshow(fix[0, 0].detach().cpu())
+                    # plt.axis('off')
+                    # plt.subplot(2, 2, 2)
+                    # plt.imshow(mov[0, 0].detach().cpu())
+                    # plt.axis('off')
+                    # plt.subplot(2, 2, 3)
+                    # plt.imshow(flow[0].detach().square().sum(0).sqrt().cpu())
+                    # plt.axis('off')
+                    # plt.subplot(2, 2, 4)
+                    # plt.imshow(moved[0, 0].detach().cpu())
+                    # plt.axis('off')
+                    # plt.show(block=True)
             print('')
 
             self.model.eval()
