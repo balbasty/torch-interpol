@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from .models import VoxelMorph
 from .datasets import vxm_oasis_train, vxm_oasis_eval, vxm_oasis_test
 from .loadable import LoadableModule, saveargs
+from .losses import NCC
 from ..layers import CoeffToValue, FlowPull, FlowLoss
 
 
@@ -38,7 +39,7 @@ class VxmTrainer(LoadableModule):
         self.model.to(self.device)
         self.tovalue = CoeffToValue(interpolation=order, bound='dft')
         self.pull = FlowPull()
-        self.loss = torch.nn.MSELoss()
+        self.loss = NCC()
         self.energy = FlowLoss(membrane=lam, interpolation=order, bound='dft')
 
         self.trainset = DataLoader(
