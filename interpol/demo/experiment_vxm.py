@@ -18,7 +18,7 @@ class VxmTrainer(LoadableModule):
             nb_epochs=5,  # 200*200 trainig pairs -> 200,000 steps
             lr=1e-4,
             save_every=1,
-            lam=0.001,
+            lam=0.1,
             batch_size=4,
             device=None,
     ):
@@ -39,7 +39,7 @@ class VxmTrainer(LoadableModule):
         self.tovalue = CoeffToValue(interpolation=order, bound='dft')
         self.pull = FlowPull()
         self.loss = torch.nn.MSELoss()
-        self.energy = FlowLoss(bending=lam, interpolation=order, bound='dft')
+        self.energy = FlowLoss(membrane=lam, interpolation=order, bound='dft')
 
         self.trainset = DataLoader(
             vxm_oasis_train, batch_size=batch_size, shuffle=True)
@@ -51,7 +51,7 @@ class VxmTrainer(LoadableModule):
         self.optim = torch.optim.Adam(self.model.parameters(), lr)
 
         # initial state
-        self.epoch = 1
+        self.epoch = 0
         self.best_loss = float('inf')
         self.train_loss = []
         self.eval_loss = []
@@ -66,12 +66,13 @@ class VxmTrainer(LoadableModule):
 
     def load_more_stuff(self, **more_stuff):
         self.optim.load_state_dict(more_stuff['optim'])
-        self.epoch = more_stuff['epoch'] + 1
+        self.epoch = more_stuff['epoch']
         self.best_loss = more_stuff['best_loss']
         self.train_loss = more_stuff['train_loss']
         self.eval_loss = more_stuff['eval_loss']
 
     def train_epoch(self):
+        import matplotlib.pyplot as plt
 
         self.model.train()
         avg_loss = 0
@@ -91,27 +92,27 @@ class VxmTrainer(LoadableModule):
             loss, sim, reg = loss.item(), sim.item(), reg.item()
             avg_loss = (batch * avg_loss + loss) / (batch + 1)
 
-            if batch % 400 == 0 or batch == len(self.trainset) - 1:
+            if batch % 40 == 0 or batch == len(self.trainset) - 1:
                 print(
                     f'{self.epoch:02d} | train | {batch:05d} | '
                     f'{sim:8.3g} + {self.lam:g} * {reg:8.3g} = {loss:8.3g}'
                     f' (epoch average: {avg_loss:8.3g})', end='\r'
                 )
-                # plt.clf()
-                # plt.gcf()
-                # plt.subplot(2, 2, 1)
-                # plt.imshow(fix[0, 0].detach().cpu())
-                # plt.axis('off')
-                # plt.subplot(2, 2, 2)
-                # plt.imshow(mov[0, 0].detach().cpu())
-                # plt.axis('off')
-                # plt.subplot(2, 2, 3)
-                # plt.imshow(flow[0].detach().square().sum(0).sqrt().cpu())
-                # plt.axis('off')
-                # plt.subplot(2, 2, 4)
-                # plt.imshow(moved[0, 0].detach().cpu())
-                # plt.axis('off')
-                # plt.show(block=True)
+                plt.clf()
+                plt.gcf()
+                plt.subplot(2, 2, 1)
+                plt.imshow(fix[0, 0].detach().cpu())
+                plt.axis('off')
+                plt.subplot(2, 2, 2)
+                plt.imshow(mov[0, 0].detach().cpu())
+                plt.axis('off')
+                plt.subplot(2, 2, 3)
+                plt.imshow(flow[0].detach().square().sum(0).sqrt().cpu())
+                plt.axis('off')
+                plt.subplot(2, 2, 4)
+                plt.imshow(moved[0, 0].detach().cpu())
+                plt.axis('off')
+                plt.show(block=True)
         print('')
         return avg_loss
 
@@ -131,16 +132,21 @@ class VxmTrainer(LoadableModule):
                 loss, sim, reg = loss.item(), sim.item(), reg.item()
                 avg_loss = (batch * avg_loss + loss) / (batch + 1)
 
-                if batch % 400 == 0 or batch == len(self.evalset) - 1:
+                if batch % 40 == 0 or batch == len(self.evalset) - 1:
                     print(f'{self.epoch:02d} | eval  | {batch:05d} | '
-                          f'{sim:8.3g} + {self.lam:g} * {reg:8.3g} ',
+                          f'{sim:8.3g} + {self.lam:g} * {reg:8.3g} '
                           f'= {loss:8.3g} '
                           f'(epoch average: {avg_loss:8.3g})', end='\r')
         print('')
         return avg_loss
 
     def train(self):
-        for self.epoch in range(self.epoch, self.nb_epochs+1):
+        import matplotlib.pyplot as plt
+        plt.figure()
+
+        # self.best_loss = max(self.best_loss, self.eval_epoch())
+
+        for self.epoch in range(self.epoch+1, self.nb_epochs+1):
 
             self.train_loss += [self.train_epoch()]
             self.eval_loss += [self.eval_epoch()]
@@ -195,7 +201,7 @@ if __name__ == "__main__":
     parser.add_argument('--nb-epochs', type=int, default=5)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--save-every', type=int, default=1)
-    parser.add_argument('--lam', type=float, default=0.001)
+    parser.add_argument('--lam', type=float, default=0.1)
     parser.add_argument('--batch-size', type=int, default=4)
     parser.add_argument('--device', default=None)
     parser.add_argument('--checkpoint', default='')
