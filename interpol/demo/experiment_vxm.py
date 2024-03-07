@@ -30,7 +30,9 @@ class VxmTrainer(LoadableModule):
         self.save_every = save_every
         self.lam = lam
         self.batch_size = batch_size
-        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = device or (
+            'cuda' if torch.cuda.is_available() else 'cpu'
+        )
 
         self.model = VoxelMorph(2)
         self.model.to(self.device)
@@ -49,85 +51,99 @@ class VxmTrainer(LoadableModule):
         self.optim = torch.optim.Adam(self.model.parameters(), lr)
 
         # initial state
-        self.epoch = 0
+        self.epoch = 1
         self.best_loss = float('inf')
+        self.train_loss = []
+        self.eval_loss = []
 
     def save_checkpoint(self, fname=None, **more_stuff):
         more_stuff['optim'] = self.optim.state_dict()
         more_stuff['epoch'] = self.epoch
         more_stuff['best_loss'] = self.best_loss
+        more_stuff['train_loss'] = self.train_loss
+        more_stuff['eval_loss'] = self.eval_loss
         return super().save_checkpoint(fname, **more_stuff)
 
     def load_more_stuff(self, **more_stuff):
         self.optim.load_state_dict(more_stuff['optim'])
         self.epoch = more_stuff['epoch'] + 1
         self.best_loss = more_stuff['best_loss']
+        self.train_loss = more_stuff['train_loss']
+        self.eval_loss = more_stuff['eval_loss']
 
-    def train(self):
-        # import matplotlib.pyplot as plt
-        # fig = plt.figure()
+    def train_epoch(self):
 
-        for self.epoch in range(self.epoch, self.nb_epochs):
+        self.model.train()
+        avg_loss = 0
+        for batch, (fix, mov) in enumerate(self.trainset):
+            fix, mov = fix.to(self.device), mov.to(self.device)
+            flow = self.model(fix, mov)
+            reg = self.energy(flow)
+            flow = self.tovalue(flow)
+            moved = self.pull(mov, flow)
+            sim = self.loss(moved, fix)
+            loss = sim + self.lam * reg
 
-            self.model.train()
+            self.optim.zero_grad()
+            loss.backward()
+            self.optim.step()
+
+            loss, sim, reg = loss.item(), sim.item(), reg.item()
+            avg_loss = (batch * avg_loss + loss) / (batch + 1)
+
+            if batch % 400 == 0 or batch == len(self.trainset) - 1:
+                print(
+                    f'{self.epoch:02d} | train | {batch:05d} | '
+                    f'{sim:8.3g} + {self.lam:g} * {reg:8.3g} = {loss:8.3g}'
+                    f' (epoch average: {avg_loss:8.3g})', end='\r'
+                )
+                # plt.clf()
+                # plt.gcf()
+                # plt.subplot(2, 2, 1)
+                # plt.imshow(fix[0, 0].detach().cpu())
+                # plt.axis('off')
+                # plt.subplot(2, 2, 2)
+                # plt.imshow(mov[0, 0].detach().cpu())
+                # plt.axis('off')
+                # plt.subplot(2, 2, 3)
+                # plt.imshow(flow[0].detach().square().sum(0).sqrt().cpu())
+                # plt.axis('off')
+                # plt.subplot(2, 2, 4)
+                # plt.imshow(moved[0, 0].detach().cpu())
+                # plt.axis('off')
+                # plt.show(block=True)
+        print('')
+        return avg_loss
+
+    def eval_epoch(self):
+        self.model.eval()
+        with torch.no_grad():
             avg_loss = 0
-            for batch, (fix, mov) in enumerate(self.trainset):
+            for batch, (fix, mov) in enumerate(self.evalset):
                 fix, mov = fix.to(self.device), mov.to(self.device)
-                flow = self.model(torch.cat([fix, mov], dim=1))
+                flow = self.model(fix, mov)
                 reg = self.energy(flow)
                 flow = self.tovalue(flow)
                 moved = self.pull(mov, flow)
                 sim = self.loss(moved, fix)
-                loss = sim + self.lam * reg
-
-                self.optim.zero_grad()
-                loss.backward()
-                self.optim.step()
+                loss = sim + reg
 
                 loss, sim, reg = loss.item(), sim.item(), reg.item()
                 avg_loss = (batch * avg_loss + loss) / (batch + 1)
 
                 if batch % 400 == 0 or batch == len(self.trainset) - 1:
-                    print(f'{self.epoch:02d} | train | {batch:05d} | '
-                          f'{sim:6.3g} + {self.lam:g} * {reg:6.3g} = {loss:6.3g} '
-                          f'(epoch average: {avg_loss:6.3g})', end='\r')
-                    # plt.clf()
-                    # plt.gcf()
-                    # plt.subplot(2, 2, 1)
-                    # plt.imshow(fix[0, 0].detach().cpu())
-                    # plt.axis('off')
-                    # plt.subplot(2, 2, 2)
-                    # plt.imshow(mov[0, 0].detach().cpu())
-                    # plt.axis('off')
-                    # plt.subplot(2, 2, 3)
-                    # plt.imshow(flow[0].detach().square().sum(0).sqrt().cpu())
-                    # plt.axis('off')
-                    # plt.subplot(2, 2, 4)
-                    # plt.imshow(moved[0, 0].detach().cpu())
-                    # plt.axis('off')
-                    # plt.show(block=True)
-            print('')
+                    print(f'{self.epoch:02d} | eval  | {batch:05d} | '
+                          f'{sim:8.3g} + {self.lam:g} * {reg:8.3g} ',
+                          f'= {loss:8.3g} '
+                          f'(epoch average: {avg_loss:8.3g})', end='\r')
+        print('')
+        return avg_loss
 
-            self.model.eval()
-            with torch.no_grad():
-                avg_loss = 0
-                for batch, (fix, mov) in enumerate(self.evalset):
-                    fix, mov = fix.to(self.device), mov.to(self.device)
-                    flow = self.model(torch.cat([fix, mov], dim=1))
-                    reg = self.energy(flow)
-                    flow = self.tovalue(flow)
-                    moved = self.pull(mov, flow)
-                    sim = self.loss(moved, fix)
-                    loss = sim + reg
+    def train(self):
+        for self.epoch in range(self.epoch, self.nb_epochs+1):
 
-                    loss, sim, reg = loss.item(), sim.item(), reg.item()
-                    avg_loss = (batch * avg_loss + loss) / (batch + 1)
-
-                    if batch % 400 == 0 or batch == len(self.trainset) - 1:
-                        print(f'{self.epoch:02d} | eval  | {batch:05d} | '
-                              f'{sim:6.3g} + {self.lam:g} * {reg:6.3g} = {loss:6.3g} '
-                              f'(epoch average: {avg_loss:6.3g})', end='\r')
-            print('')
+            self.train_loss += [self.train_epoch()]
+            self.eval_loss += [self.eval_epoch()]
 
             if self.epoch % self.save_every == 0:
                 self.save_checkpoint(
@@ -136,8 +152,8 @@ class VxmTrainer(LoadableModule):
                 self.save_checkpoint(
                     os.path.join(self.odir, 'last.ckpt')
                 )
-            if avg_loss < self.best_loss:
-                self.best_loss = avg_loss
+            if self.eval_loss[-1] < self.best_loss:
+                self.best_loss = self.eval_loss[-1]
                 self.save_checkpoint(
                     os.path.join(self.odir, 'best.ckpt')
                 )
@@ -152,7 +168,7 @@ class VxmTrainer(LoadableModule):
             avg_loss = 0
             for batch, (fix, mov) in enumerate(self.testset):
                 fix, mov = fix.to(self.device), mov.to(self.device)
-                flow = self.model(torch.cat([fix, mov], dim=1))
+                flow = self.model(fix, mov)
                 reg = self.energy(flow)
                 flow = self.tovalue(flow)
                 moved = self.pull(mov, flow)

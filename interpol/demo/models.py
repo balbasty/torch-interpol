@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from .backbones import UNet
 from ..layers import SplineUp2, ResizeFlow
@@ -20,6 +21,7 @@ class VoxelMorph(nn.Sequential):
         Conv = getattr(nn, f'Conv{ndim}d')
         nf = unet_parameters.get('nb_features', 16)
         unet_parameters.setdefault('nb_levels', 5)
+        unet_parameters.setdefault('nb_features', [16, 16, 32, 32, 32])
         unet_parameters.setdefault('activation', 'LeakyReLU')
         super().__init__(
             Conv(2, nf, kernel_size=[3]*ndim, padding='same'),
@@ -27,21 +29,23 @@ class VoxelMorph(nn.Sequential):
             Conv(nf, ndim, kernel_size=[1]*ndim),
         )
 
-    def forward(self, fixmov):
+    def forward(self, fix, mov):
         """
         Predict a displacement field from a fixed and moving images
 
         Parameters
         ----------
-        fixmov : (B, 2, X, Y) tensor
-            Input fixed and moving images, stacked along
-            the channel dimension
+        fix : (B, 1, X, Y) tensor
+            Input fixed image
+        mov : (B, 1, X, Y) tensor
+            Input moving images
 
         Returns
         -------
         flow : (B, D, X, Y) tensor
             Predicted displacement field
         """
+        fixmov = torch.cat([fix, mov], dim=1)
         return super().forward(fixmov)
 
 
@@ -78,15 +82,16 @@ class PyramidMorph(nn.Module):
             SplineUp2(interpolation=order)
         )
 
-    def forward(self, fixmov):
+    def forward(self, fix, mov):
         """
         Predict a displacement field from a fixed and moving images
 
         Parameters
         ----------
-        fixmov : (B, 2, X, Y) tensor
-            Input fixed and moving images, stacked along
-            the channel dimension
+        fix : (B, 1, X, Y) tensor
+            Input fixed image
+        mov : (B, 1, X, Y) tensor
+            Input moving images
 
         Returns
         -------
@@ -95,6 +100,7 @@ class PyramidMorph(nn.Module):
             pyramid level, from coarse to fine.
         """
         # uncombined pyramid of flows
+        fixmov = torch.cat([fix, mov], dim=1)
         inppyr = self.unet(self.features(fixmov), return_pyramid=True)
         flow = inppyr.pop(0)
         outpyr = [flow]

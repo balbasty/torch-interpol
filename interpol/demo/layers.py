@@ -466,7 +466,7 @@ class ConvUpResize(nn.Sequential):
             ),
             Resize(2)
         ]
-        for nconv in range(nb_conv-1):
+        for nconv in range(nb_conv):
             true_inp_channels = out_channels
             if nconv == 0:
                 true_inp_channels += skip_channels
