@@ -207,9 +207,9 @@ if torch_version('>=', [1, 8]):
     def floor_div_int(x, y: int) -> torch.Tensor:
         return torch.div(x, y, rounding_mode='floor')
 elif torch_version('<', (1, 6)):
-    floor_div = torch.div
+    floor_div = floor_div_int = torch.div
 else:
-    floor_div = torch.floor_divide
+    floor_div = floor_div_int = torch.floor_divide
 #     @torch.jit.script
 #     def floor_div(x, y) -> torch.Tensor:
 #         return (x / y).floor_()

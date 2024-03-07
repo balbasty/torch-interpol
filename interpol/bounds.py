@@ -148,7 +148,7 @@ class Bound:
             one = torch.ones([1], dtype=torch.int8, device=i.device)
             zero = torch.zeros([1], dtype=torch.int8, device=i.device)
             n2 = 2 * (n + 1)
-            i = torch.where(i < 0, -i + (n-1), i)
+            i = torch.where(i < 0, n - 1 - i, i)
             i = i.remainder(n2)
             x = torch.where(i == 0, zero, one)
             x = torch.where(i.remainder(n + 1) == n, zero, x)

@@ -15,8 +15,7 @@ import torch
 import itertools
 from torch.nn import functional as F
 from fractions import Fraction as R
-from .padding import pad, make_vector, ensure_shape
-from .bounds import to_fourier
+from bounds import pad, make_vector, ensure_shape, to_fourier
 from .utils import make_list
 from .jit_utils import movedim1
 
@@ -248,20 +247,20 @@ def coeff_upsample2(coeff, order, ndim=1, bound='dft', **kwargs):
     for d, o in enumerate(order):
         FF1, EE1, OO1 = make_upkernels1d(
             o, dtype=coeff.dtype, device=coeff.device)
-        for _ in range(d):
+        PE += [len(OO1) // 2]
+        PO += [len(OO1) - PE[-1] - 1]
+        for _ in range(ndim-1-d):
             FF1 = FF1[..., None]
             EE1 = EE1[..., None]
             OO1 = OO1[..., None]
         FF = FF * FF1
         EE += [EE1]
         OO += [OO1]
-        PE += [len(OO1) // 2]
-        PO += [len(OO1) - PE[-1] - 1]
 
     # permute/reshape
-    batch = coeff.shape[:-1]
+    batch = coeff.shape[:-ndim]
     coeff0 = coeff.reshape((-1, 1) + coeff.shape[-ndim:])
-    upshape = coeff0.shape[:-1] + tuple(2*s for s in coeff0.shape[-ndim:])
+    upshape = coeff0.shape[:-ndim] + tuple(2*s for s in coeff0.shape[-ndim:])
     coeff = coeff0.new_empty(upshape)
 
     for is_odd in itertools.product([True, False], repeat=ndim):
