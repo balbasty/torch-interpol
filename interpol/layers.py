@@ -486,7 +486,7 @@ class ResizeFlow(Resize):
         ishape = flow.shape[2:]
         iflow = super().forward(flow)
         oflow = torch.empty_like(iflow)
-        oshape = flow.shape[2:]
+        oshape = oflow.shape[2:]
         anchor = self.anchor[0].lower()
         if anchor == 'c':
             for d in range(ndim):

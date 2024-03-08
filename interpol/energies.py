@@ -209,7 +209,7 @@ def flow_upsample2(coeff, order, bound='dft', **kwargs):
     """
     ndim = coeff.shape[-1]
     coeff = movedim1(coeff, -1, 0)
-    coeff = coeff_upsample2(coeff, order, ndim, bound)
+    coeff = coeff_upsample2(coeff, order, ndim, bound, **kwargs)
     coeff = movedim1(coeff, 0, -1)
     coeff *= 2
     return coeff
