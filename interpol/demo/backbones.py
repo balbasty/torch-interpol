@@ -85,6 +85,7 @@ class UNet(nn.Module):
         else:
             F = list(nb_features)
             F += F[-1:] * max(0, nb_levels - len(F))
+            F = F[:nb_levels]
 
         downpath = [make_inp(F[0], F[0])]
         for i in range(1, nb_levels):

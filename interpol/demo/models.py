@@ -79,8 +79,10 @@ class PyramidMorph(nn.Module):
         else:
             nf = list(nf)
             nf += nf[-1:] * max(0, np - len(nf))
+            nf = nf[:np]
         self.features = Conv(2, nf[0], kernel_size=[3]*ndim, padding='same')
         self.unet = UNet(ndim, **unet_parameters)
+        nf.reverse()
         self.toflow = nn.ModuleList([
             Conv(nf[i], ndim, kernel_size=[1]*ndim) for i in range(np)
         ])
