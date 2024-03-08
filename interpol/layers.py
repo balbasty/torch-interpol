@@ -486,15 +486,15 @@ class ResizeFlow(Resize):
         oshape = flow.shape[2:]
         anchor = self.anchor[0].lower()
         if anchor == 'c':
-            for d, (isz, osz) in enumerate(zip(ishape, oshape)):
-                flow[:, d] *= (osz - 1) / (isz - 1)
+            for isz, osz, flow1 in zip(ishape, oshape, flow.unbind(1)):
+                flow1 *= (osz - 1) / (isz - 1)
         elif anchor == 'e':
-            for d, (isz, osz) in enumerate(zip(ishape, oshape)):
-                flow[:, d] *= osz / isz
+            for isz, osz, flow1 in zip(ishape, oshape, flow.unbind(1)):
+                flow1 *= osz / isz
         else:
             factor = make_list(self.factor, len(ishape))
-            for d, f in enumerate(factor):
-                flow[:, d] *= f
+            for f, flow1 in zip(factor, flow.unbind(1)):
+                flow1 *= f
         return flow
 
 

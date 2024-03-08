@@ -198,7 +198,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--directory', default='.')
-    parser.add_argument('--order', type=str, default=3)
+    parser.add_argument('--order', type=str, default='cubic')
     parser.add_argument('--nb-epochs', type=int, default=5)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--save-every', type=int, default=1)
