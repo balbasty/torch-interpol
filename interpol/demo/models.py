@@ -72,11 +72,17 @@ class PyramidMorph(nn.Module):
         unet_parameters.setdefault('nb_features', [16, 16, 32, 32, 32])
         unet_parameters.setdefault('activation', 'LeakyReLU')
         nf = unet_parameters.get('nb_features', 16)
+        mf = unet_parameters.get('mul_features', 2)
         np = unet_parameters.get('nb_levels', 5)
+        if isinstance(nf, int):
+            nf = [nf * mf**level for level in range(np)]
+        else:
+            nf = list(nf)
+            nf += nf[-1:] * max(0, np - len(nf))
         self.features = Conv(2, nf, kernel_size=[3]*ndim, padding='same')
         self.unet = UNet(ndim, **unet_parameters)
         self.toflow = nn.ModuleList([
-            Conv(nf, ndim, kernel_size=[1]*ndim) for _ in range(np)
+            Conv(nf[i], ndim, kernel_size=[1]*ndim) for i in range(np)
         ])
         self.up2 = (
             ResizeFlow(2, anchor='edges', bound='dft', extrapolate=True)
