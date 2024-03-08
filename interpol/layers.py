@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from . import api, energies
 from .splines import to_int as inter_to_int
@@ -481,21 +482,23 @@ class ResizeFlow(Resize):
         output : (batch, ndim, *shape)
             Resized displacement field
         """
+        ndim = flow.shape[1]
         ishape = flow.shape[2:]
-        flow = super().forward(flow)
+        iflow = super().forward(flow)
+        oflow = torch.empty_like(iflow)
         oshape = flow.shape[2:]
         anchor = self.anchor[0].lower()
         if anchor == 'c':
-            for isz, osz, flow1 in zip(ishape, oshape, flow.unbind(1)):
-                flow1 *= (osz - 1) / (isz - 1)
+            for d in range(ndim):
+                oflow[:, d] = iflow[:, d] * ((oshape[d] - 1) / (ishape[d] - 1))
         elif anchor == 'e':
-            for isz, osz, flow1 in zip(ishape, oshape, flow.unbind(1)):
-                flow1 *= osz / isz
+            for d in range(ndim):
+                oflow[:, d] = iflow[:, d] * (oshape[d] / ishape[d])
         else:
-            factor = make_list(self.factor, len(ishape))
-            for f, flow1 in zip(factor, flow.unbind(1)):
-                flow1 *= f
-        return flow
+            factor = make_list(self.factor, ndim)
+            for d in range(ndim):
+                oflow[:, d] = iflow[:, d] * factor[d]
+        return oflow
 
 
 class ValueToCoeff(nn.Module):
