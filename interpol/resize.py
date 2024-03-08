@@ -74,7 +74,7 @@ def resize(image, factor=None, shape=None, anchor='c',
     factor = make_list(factor) if factor else []
     shape = make_list(shape) if shape else []
     anchor = make_list(anchor)
-    nb_dim = max(len(factor), len(shape), len(anchor)) or (image.dim() - 2)
+    nb_dim = max(len(factor), len(shape), len(anchor), image.ndim - 2)
     anchor = [a[0].lower() for a in make_list(anchor, nb_dim)]
     bck = dict(dtype=image.dtype, device=image.device)
 
