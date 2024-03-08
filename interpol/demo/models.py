@@ -68,9 +68,11 @@ class PyramidMorph(nn.Module):
         """
         super().__init__()
         Conv = getattr(nn, f'Conv{ndim}d')
-        nf = unet_parameters.get('nb_features', 16)
-        np = unet_parameters.get('nb_levels', 3)
         unet_parameters.setdefault('nb_levels', 5)
+        unet_parameters.setdefault('nb_features', [16, 16, 32, 32, 32])
+        unet_parameters.setdefault('activation', 'LeakyReLU')
+        nf = unet_parameters.get('nb_features', 16)
+        np = unet_parameters.get('nb_levels', 5)
         self.features = Conv(2, nf, kernel_size=[3]*ndim, padding='same')
         self.unet = UNet(ndim, **unet_parameters)
         self.toflow = nn.ModuleList([
@@ -82,7 +84,7 @@ class PyramidMorph(nn.Module):
             SplineUp2(interpolation=order)
         )
 
-    def forward(self, fix, mov):
+    def forward(self, fix, mov, return_pyramid=False):
         """
         Predict a displacement field from a fixed and moving images
 
@@ -95,17 +97,22 @@ class PyramidMorph(nn.Module):
 
         Returns
         -------
-        flows : list[(B, D, Xl, Yl) tensor]
-            Predicted spline coefficients of the flow fields, at each
-            pyramid level, from coarse to fine.
+        flows : [list of] (B, D, X, Y) tensor
+            Predicted spline coefficients of the flow fields
+            (at each pyramid level, from coarse to fine)
         """
-        # uncombined pyramid of flows
         fixmov = torch.cat([fix, mov], dim=1)
+        # uncombined pyramid of features
         inppyr = self.unet(self.features(fixmov), return_pyramid=True)
-        flow = inppyr.pop(0)
-        outpyr = [flow]
+        # feat2flow layers
+        toflow = list(self.toflow)
+        # coarsest flow
+        flow = toflow.pop(0)(inppyr.pop(0))
+        outpyr = [flow] if return_pyramid else []
         while inppyr:
+            # upsample and add
             flow = self.up2(flow)
-            flow += inppyr.pop(0)
-            outpyr += [flow]
-        return outpyr
+            flow += toflow.pop(0)(inppyr.pop(0))
+            if return_pyramid:
+                outpyr += [flow]
+        return tuple(outpyr) if return_pyramid else flow

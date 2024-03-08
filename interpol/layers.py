@@ -220,7 +220,7 @@ class Resize(nn.Module):
             self,
             factor=None,
             shape=None,
-            anchor='center',
+            anchor='edge',
             interpolation='linear',
             bound='zero',
             extrapolate=False,
@@ -243,7 +243,7 @@ class Resize(nn.Module):
           shape as x.
 
         ```
-            edges          centers          first           last
+             edge           center          first           last
         e - + - + - e   + - + - + - +   + - + - + - +   + - + - + - +
         | . | . | . |   | c | . | c |   | f | . | . |   | . | . | . |
         + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +
@@ -335,7 +335,7 @@ class Restrict(nn.Module):
             self,
             factor=None,
             shape=None,
-            anchor='center',
+            anchor='edge',
             interpolation='linear',
             bound='zero',
             reduce_sum=False,
@@ -357,7 +357,7 @@ class Restrict(nn.Module):
           shape as x.
 
         ```
-            edges          centers          first           last
+            edge           center           first           last
         e - + - + - e   + - + - + - +   + - + - + - +   + - + - + - +
         | . | . | . |   | c | . | c |   | f | . | . |   | . | . | . |
         + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +   + _ + _ + _ +
@@ -440,6 +440,26 @@ class ResizeFlow(Resize):
     """
     Resize (interpolate) a displacement field
     """
+
+    def __init__(
+            self,
+            factor=None,
+            shape=None,
+            anchor='edge',
+            interpolation='linear',
+            bound='dft',
+            extrapolate=False,
+            prefilter=True,
+    ):
+        super().__init__(
+            factor=factor,
+            shape=shape,
+            anchor=anchor,
+            interpolation=interpolation,
+            bound=bound,
+            extrapolate=extrapolate,
+            prefilter=prefilter,
+        )
 
     def forward(self, flow, **kwargs):
         """
