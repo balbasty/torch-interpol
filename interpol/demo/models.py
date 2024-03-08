@@ -88,7 +88,7 @@ class PyramidMorph(nn.Module):
         ])
         self.up2 = (
             ResizeFlow(2, anchor='edges', bound='dft', extrapolate=True)
-            if order == 1 else
+            if order == 'fd' else
             SplineUp2(interpolation=order)
         )
 
