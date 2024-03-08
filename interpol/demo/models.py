@@ -110,6 +110,7 @@ class PyramidMorph(nn.Module):
         fixmov = torch.cat([fix, mov], dim=1)
         # uncombined pyramid of features
         inppyr = self.unet(self.features(fixmov), return_pyramid=True)
+        inppyr = list(inppyr)
         # feat2flow layers
         toflow = list(self.toflow)
         # coarsest flow
