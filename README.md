@@ -3,14 +3,14 @@ High-order spline interpolation in PyTorch
 
 ## Description
 
-This package contains a pure python implementation of **high-order spline 
-interpolation** for ND tensors (including 2D and 3D images). It makes use 
+This package contains a pure python implementation of **high-order spline
+interpolation** for ND tensors (including 2D and 3D images). It makes use
 of the just-in-time capabilities of TorchScript and explicitly implements
-the forward and backward passes of all functions, making it **fast** and 
-**memory-efficient**. 
+the forward and backward passes of all functions, making it **fast** and
+**memory-efficient**.
 
-All the functions available in this (small) package were originally 
-implemented in [NITorch](https://github/balbasty/nitorch), a larger 
+All the functions available in this (small) package were originally
+implemented in [NITorch](https://github/balbasty/nitorch), a larger
 PyTorch-based package dedicated to NeuroImaging and Medical Image Computing.
 
 ## Installation
@@ -18,6 +18,12 @@ PyTorch-based package dedicated to NeuroImaging and Medical Image Computing.
 ### Dependency
 
 - `torch >= 1.3`
+- `torch >= 1.8` if any of these functions is used:
+    - `flowiconv`
+    - `flowimom`
+    - `flow_upsample2`
+    - `coeff_upsample2`
+- `torch-bounds >= 0.1`
 
 ### Conda
 
@@ -36,7 +42,6 @@ pip install torch-interpol
 **See our [example notebooks](examples/)**
 
 ## Quick doc
-
 
 ```
 Notes
@@ -65,6 +70,7 @@ Possible values are:
     - 'zero'       or 'zeros'       :  0  0  0  |  a  b  c  d  |  0  0  0
 A list of values can be provided, in the order [W, H, D],
 to specify dimension-specific boundary conditions.
+
 Note that
 - `dft` corresponds to circular padding
 - `dct2` corresponds to Neumann boundary conditions (symmetric)
@@ -72,6 +78,8 @@ Note that
 See https://en.wikipedia.org/wiki/Discrete_cosine_transform
     https://en.wikipedia.org/wiki/Discrete_sine_transform
 ```
+
+### Spline interpolation
 
 ```python
 interpol.grid_pull(
@@ -85,10 +93,10 @@ interpol.grid_pull(
 """
 Sample an image with respect to a deformation field.
 
-If the input dtype is not a floating point type, the input image is 
-assumed to contain labels. Then, unique labels are extracted 
-and resampled individually, making them soft labels. Finally, 
-the label map is reconstructed from the individual soft labels by 
+If the input dtype is not a floating point type, the input image is
+assumed to contain labels. Then, unique labels are extracted
+and resampled individually, making them soft labels. Finally,
+the label map is reconstructed from the individual soft labels by
 assigning the label with maximum soft value.
 
 Parameters
@@ -124,7 +132,9 @@ interpol.grid_push(
     prefilter=False,
 )
 """
-Splat an image with respect to a deformation field (pull adjoint).
+Splat an image with respect to a deformation field.
+
+This function is the exact numerical adjoint of `grid_pull`.
 
 Parameters
 ----------
@@ -232,11 +242,11 @@ output : (..., *spatial) tensor
 
 ```python
 interpol.resize(
-    image, 
-    factor=None, 
-    shape=None, 
+    image,
+    factor=None,
+    shape=None,
     anchor='c',
-    interpolation=1, 
+    interpolation=1,
     prefilter=True
 )
 """Resize an image by a factor or to a specific shape.
@@ -289,6 +299,268 @@ Returns
 resized : (batch, channel, *shape) tensor
     Resized image
 
+"""
+```
+
+### Spline analytical energies
+
+```python
+interpol.flowreg(
+    flow,
+    order,
+    absolute=0,
+    membrane=0,
+    bending=0,
+    div=0,
+    shears=0,
+    voxel_size=None,
+    norm=False,
+    bound='circulant',
+    keepdim=False
+)
+"""
+Compute the regularization of a flow field
+
+Parameters
+----------
+flow : (*batch, *spatial, ndim) tensor
+    Spline coefficients of a flow field
+order : int
+    Spline order
+absolute : float, default=0
+    Penalty on absolute displacement
+membrane : float, default=0
+    Penalty on first derivatives
+bending : float, default=0
+    Penalty on second derivatives
+div : float, default=0
+    Penalty on volume changes
+shears : float, default=0
+    Penalty on shears
+voxel_size : [sequence of] float
+    Voxel size
+norm : bool, default=False
+    If True, compute the average energy across the field of view.
+    Otherwise, compute the sum (integral) of the energy across the FOV.
+bound : bound_like, default='neumann'
+    Boundary conditions
+keepdim : bool, default=False
+    Keep reduced dimensions
+
+Returns
+-------
+convflow : (*batch) tensor
+    Flow energy (per batch element)
+
+"""
+```
+
+```python
+interpol.flowmom(
+    flow,
+    order,
+    absolute=0,
+    membrane=0,
+    bending=0,
+    div=0,
+    shears=0,
+    voxel_size=None,
+    norm=False,
+    bound='circulant'
+)
+"""
+Compute the matrix-vector part of the regularization of a flow field
+
+Parameters
+----------
+flow : (*batch, *spatial, ndim) tensor
+    Spline coefficients of a flow field
+order : int
+    Spline order
+absolute : float, default=0
+    Penalty on absolute displacement
+membrane : float, default=0
+    Penalty on first derivatives
+bending : float, default=0
+    Penalty on second derivatives
+div : float, default=0
+    Penalty on volume changes
+shears : float, default=0
+    Penalty on shears
+voxel_size : [sequence of] float
+    Voxel size
+norm : bool or int, default=False
+    If True, compute the average energy across the field of view.
+    Otherwise, compute the sum (integral) of the energy across the FOV.
+bound : bound_like, default='neumann'
+    Boundary conditions
+
+Returns
+-------
+convflow : (*batch, *spatial, ndim) tensor
+    Flow momentum
+
+"""
+```
+
+```python
+interpol.flowimom(
+    mom,
+    order,
+    absolute=0,
+    membrane=0,
+    bending=0,
+    div=0,
+    shears=0,
+    voxel_size=None,
+    norm=False,
+    bound='circulant'
+)
+"""
+Compute the matrix-vector product with the inverse of the reg matrix
+
+!!! warning "Requires `torch >= 1.8`"
+
+Parameters
+----------
+mom : (*batch, *spatial, ndim) tensor
+    Flow momentum
+order : int
+    Spline order
+absolute : float, default=0
+    Penalty on absolute displacement
+membrane : float, default=0
+    Penalty on first derivatives
+bending : float, default=0
+    Penalty on second derivatives
+div : float, default=0
+    Penalty on volume changes
+shears : float, default=0
+    Penalty on shears
+voxel_size : [sequence of] float
+    Voxel size
+norm : bool or int, default=False
+    If True, compute the average energy across the field of view.
+    Otherwise, compute the sum (integral) of the energy across the FOV.
+bound : bound_like, default='neumann'
+    Boundary conditions
+
+Returns
+-------
+flow : (*batch, *spatial, ndim) tensor
+    Flow field
+
+"""
+```
+
+```python
+interpol.flow_upsample2(coeff, order, bound='circulant')
+"""
+Upsample spline coefficients of a flow by a factor 2, while
+minimizing the continuous mean squared error.
+
+Parameters
+----------
+coeff : (*batch, *spatial, ndim) tensor
+    Spline coefficients of the flow
+order : [list of] int
+    Spline order
+bound : [list of] str
+    Boundary condition. For now, MUST be `"dft"`
+
+Returns
+-------
+upcoeff : tensor
+    Upsampled spline coefficients of the flow
+    Values are also multiplied by 2.
+"""
+```
+
+```python
+interpol.coeff_upsample2(coeff, order, ndim=1, bound='circulant')
+"""
+Upsample spline coefficients by a factor 2, while minimizing the
+continuous MSE
+
+!!! warning "Requires `torch >= 1.8`"
+
+Parameters
+----------
+coeff : tensor
+    Spline coefficients
+order : [list of] int
+    Spline order
+ndim : int
+    The last `ndim` dimension(s) are upsampled
+bound : [list of] str
+    Boundary condition. For now, MUST be `"dft"`
+
+Returns
+-------
+upcoeff : tensor
+    Upsampled spline coefficients
+"""
+```
+
+```python
+interpol.make_kernel(
+    ndim,
+    order,
+    absolute=0,
+    membrane=0,
+    bending=0,
+    div=0,
+    shears=0,
+    voxel_size=None,
+    norm=False,
+    *,
+    kernels1d=None,
+    dtype=None,
+    device=None
+)
+r"""
+Generate a convolution kernel for a mixture of energies.
+
+The energy of `v` can be computed via `0.5 * (v * conv(v, kernel)).sum()`.
+
+Parameters
+----------
+ndim : int
+    Number of spatial dimensions
+order : int or 'fd'
+    Spline order. If 'fd', use finite-differences.
+absolute : float, default=0
+    Penalty on absolute displacement
+membrane : float, default=0
+    Penalty on first derivatives
+bending : float, default=0
+    Penalty on second derivatives
+div : float, default=0
+    Penalty on volume changes
+shears : float, default=0
+    Penalty on shears
+voxel_size : [sequence of] float
+    Voxel size
+norm : int, default=False
+    If $\ge 0$, contains the number of voxels, and the average
+    energy across the field of view is computed.
+    Otherwise, compute the sum (integral) of the energy across the FOV.
+
+Other Parameters
+----------------
+kernels1d : list[tensor]
+    Precomputed 1d auto-correlations
+dtype : torch.dtype, default=torch.float64
+    Data type
+device : torch.device
+    Device (cpu or cuda device)
+
+Returns
+-------
+kernel : ([ndim, ndim], [1+2*order] * ndim) tensor
+    A `[ndim, ndim]` matrix of ND kernels (if `shears > 0` or `div > 0`)
+    or `ndim` ND kernels if (`voxel_size` is a list)
+    or a single ND kernel (if `voxel_size` is a scalar).
 """
 ```
 

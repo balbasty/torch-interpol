@@ -1,8 +1,20 @@
 """High level interpolation API"""
-__all__ = ['grid_pull', 'grid_push', 'grid_count', 'grid_grad', 'grid_hess',
-           'spline_coeff', 'spline_coeff_nd', 'spline_coeff_nd_',
-           'identity_grid', 'add_identity_grid', 'add_identity_grid_',
-           'sub_identity_grid', 'sub_identity_grid_']
+__all__ = [
+    'grid_pull',
+    'grid_push',
+    'grid_count',
+    'grid_grad',
+    'grid_hess',
+    'spline_coeff',
+    'spline_coeff_nd',
+    'spline_coeff_nd_',
+    'identity_grid',
+    'affine_grid',
+    'add_identity_grid',
+    'add_identity_grid_',
+    'sub_identity_grid',
+    'sub_identity_grid_',
+]
 import torch
 from .utils import matvec, make_list
 from .jit_utils import movedim1, meshgrid
