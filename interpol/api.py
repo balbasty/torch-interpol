@@ -1,8 +1,20 @@
 """High level interpolation API"""
 
-__all__ = ['grid_pull', 'grid_push', 'grid_count', 'grid_grad',
-           'spline_coeff', 'spline_coeff_nd',
-           'identity_grid', 'add_identity_grid', 'add_identity_grid_']
+__all__ = [
+    'pull',
+    'push',
+    'count',
+    'grid_pull',
+    'grid_push',
+    'grid_count',
+    'grid_grad',
+    'spline_coeff',
+    'spline_coeff_nd',
+    'identity_grid',
+    'add_identity_grid',
+    'add_identity_grid_',
+    'affine_grid',
+]
 
 import torch
 from .utils import expanded_shape, matvec
@@ -44,7 +56,7 @@ _doc_bound = \
         https://en.wikipedia.org/wiki/Discrete_sine_transform"""
 
 _doc_bound_coeff = \
-"""`bound` can be an int, a string or a BoundType. 
+"""`bound` can be an int, a string or a BoundType.
     Possible values are:
         - 'replicate'  or 'nearest'     :  a  a  a  |  a  b  c  d  |  d  d  d
         - 'dct1'       or 'mirror'      :  d  c  b  |  a  b  c  d  |  c  b  a
@@ -61,7 +73,7 @@ _doc_bound_coeff = \
     - `dct2` corresponds to mirroring about the edge of the first/last voxel
     See https://en.wikipedia.org/wiki/Discrete_cosine_transform
         https://en.wikipedia.org/wiki/Discrete_sine_transform
-        
+
     /!\ Only 'dct1', 'dct2' and 'dft' are implemented for interpolation
         orders >= 6."""
 
@@ -143,11 +155,11 @@ def grid_pull(input, grid, interpolation='linear', bound='zero',
     {interpolation}
 
     {bound}
-    
-    If the input dtype is not a floating point type, the input image is 
-    assumed to contain labels. Then, unique labels are extracted 
-    and resampled individually, making them soft labels. Finally, 
-    the label map is reconstructed from the individual soft labels by 
+
+    If the input dtype is not a floating point type, the input image is
+    assumed to contain labels. Then, unique labels are extracted
+    and resampled individually, making them soft labels. Finally,
+    the label map is reconstructed from the individual soft labels by
     assigning the label with maximum soft value.
 
     Parameters
@@ -290,7 +302,7 @@ def grid_count(grid, shape=None, interpolation='linear', bound='zero',
 def grid_grad(input, grid, interpolation='linear', bound='zero',
               extrapolate=False, prefilter=False):
     """Sample spatial gradients of an image with respect to a deformation field.
-    
+
     Notes
     -----
     {interpolation}

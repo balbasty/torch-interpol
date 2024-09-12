@@ -10,9 +10,12 @@ from .pushpull import (
     grid_grad, grid_grad_backward)
 from .utils import fake_decorator
 try:
-    from torch.cuda.amp import custom_fwd, custom_bwd
+    from torch.amp import custom_fwd, custom_bwd
 except (ModuleNotFoundError, ImportError):
-    custom_fwd = custom_bwd = fake_decorator
+    try:
+        from torch.cuda.amp import custom_fwd, custom_bwd
+    except (ModuleNotFoundError, ImportError):
+        custom_fwd = custom_bwd = fake_decorator
 
 
 def make_list(x):
