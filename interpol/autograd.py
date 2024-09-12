@@ -157,7 +157,7 @@ def inter_to_nitorch(inter, as_type='str'):
 class GridPull(torch.autograd.Function):
 
     @staticmethod
-    @custom_fwd('cuda', cast_inputs=torch.float32)
+    @custom_fwd(device_type='cuda', cast_inputs=torch.float32)
     def forward(ctx, input, grid, interpolation, bound, extrapolate):
 
         bound = bound_to_nitorch(make_list(bound), as_type='int')
@@ -175,7 +175,7 @@ class GridPull(torch.autograd.Function):
         return output
 
     @staticmethod
-    @custom_bwd('cuda')
+    @custom_bwd(device_type='cuda')
     def backward(ctx, grad):
         var = ctx.saved_tensors
         opt = ctx.opt
@@ -187,7 +187,7 @@ class GridPull(torch.autograd.Function):
 class GridPush(torch.autograd.Function):
 
     @staticmethod
-    @custom_fwd('cuda', cast_inputs=torch.float32)
+    @custom_fwd(device_type='cuda', cast_inputs=torch.float32)
     def forward(ctx, input, grid, shape, interpolation, bound, extrapolate):
 
         bound = bound_to_nitorch(make_list(bound), as_type='int')
@@ -205,7 +205,7 @@ class GridPush(torch.autograd.Function):
         return output
 
     @staticmethod
-    @custom_bwd('cuda')
+    @custom_bwd(device_type='cuda')
     def backward(ctx, grad):
         var = ctx.saved_tensors
         opt = ctx.opt
@@ -217,7 +217,7 @@ class GridPush(torch.autograd.Function):
 class GridCount(torch.autograd.Function):
 
     @staticmethod
-    @custom_fwd('cuda', cast_inputs=torch.float32)
+    @custom_fwd(device_type='cuda', cast_inputs=torch.float32)
     def forward(ctx, grid, shape, interpolation, bound, extrapolate):
 
         bound = bound_to_nitorch(make_list(bound), as_type='int')
@@ -235,7 +235,7 @@ class GridCount(torch.autograd.Function):
         return output
 
     @staticmethod
-    @custom_bwd('cuda')
+    @custom_bwd(device_type='cuda')
     def backward(ctx, grad):
         var = ctx.saved_tensors
         opt = ctx.opt
@@ -248,7 +248,7 @@ class GridCount(torch.autograd.Function):
 class GridGrad(torch.autograd.Function):
 
     @staticmethod
-    @custom_fwd('cuda', cast_inputs=torch.float32)
+    @custom_fwd(device_type='cuda', cast_inputs=torch.float32)
     def forward(ctx, input, grid, interpolation, bound, extrapolate):
 
         bound = bound_to_nitorch(make_list(bound), as_type='int')
@@ -266,7 +266,7 @@ class GridGrad(torch.autograd.Function):
         return output
 
     @staticmethod
-    @custom_bwd('cuda')
+    @custom_bwd(device_type='cuda')
     def backward(ctx, grad):
         var = ctx.saved_tensors
         opt = ctx.opt
@@ -280,7 +280,7 @@ class GridGrad(torch.autograd.Function):
 class SplineCoeff(torch.autograd.Function):
 
     @staticmethod
-    @custom_fwd('cuda')
+    @custom_fwd(device_type='cuda')
     def forward(ctx, input, bound, interpolation, dim, inplace):
 
         bound = bound_to_nitorch(make_list(bound)[0], as_type='int')
@@ -297,7 +297,7 @@ class SplineCoeff(torch.autograd.Function):
         return output
 
     @staticmethod
-    @custom_bwd('cuda')
+    @custom_bwd(device_type='cuda')
     def backward(ctx, grad):
         # symmetric filter -> backward == forward
         # (I don't know if I can write into grad, so inplace=False to be safe)
@@ -308,7 +308,7 @@ class SplineCoeff(torch.autograd.Function):
 class SplineCoeffND(torch.autograd.Function):
 
     @staticmethod
-    @custom_fwd('cuda')
+    @custom_fwd(device_type='cuda')
     def forward(ctx, input, bound, interpolation, dim, inplace):
 
         bound = bound_to_nitorch(make_list(bound), as_type='int')
@@ -325,7 +325,7 @@ class SplineCoeffND(torch.autograd.Function):
         return output
 
     @staticmethod
-    @custom_bwd('cuda')
+    @custom_bwd(device_type='cuda')
     def backward(ctx, grad):
         # symmetric filter -> backward == forward
         # (I don't know if I can write into grad, so inplace=False to be safe)
