@@ -106,7 +106,7 @@ def flowimom(mom, order, *args, bound=BOUND_DEFAULT, **kwargs):
     norm : bool or int, default=False
         If True, compute the average energy across the field of view.
         Otherwise, compute the sum (integral) of the energy across the FOV.
-    bound : bound_like, default='neumann'
+    bound : bound_like
         Boundary conditions
 
     Returns
@@ -119,7 +119,8 @@ def flowimom(mom, order, *args, bound=BOUND_DEFAULT, **kwargs):
     norm = kwargs.pop('norm', 0)
     if norm:
         kwargs['norm'] = mom.shape[-ndim-1:-1].numel()
-    kernel = make_kernel(ndim, order, *args, **kwargs)
+    kernel = make_kernel(ndim, order, *args, **kwargs,
+                         dtype=mom.dtype, device=mom.device)
     return flowiconv(mom, kernel, bound)
 
 
@@ -128,14 +129,16 @@ def flow_upsample2(coeff, order, bound=BOUND_DEFAULT):
     Upsample spline coefficients of a flow by a factor 2, while
     minimizing the continuous mean squared error.
 
+    !!! warning "Requires `torch >= 1.8`"
+
     Parameters
     ----------
     coeff : (*batch, *spatial, ndim) tensor
         Spline coefficients of the flow
     order : [list of] int
         Spline order
-    bound : [list of] str
-        Boundary condition. For now, MUST be `"dft"`
+    bound : [list of] bound_like
+        Boundary condition.
 
     Returns
     -------
@@ -166,8 +169,8 @@ def coeff_upsample2(coeff, order, ndim=1, bound=BOUND_DEFAULT):
         Spline order
     ndim : int
         The last `ndim` dimension(s) are upsampled
-    bound : [list of] str
-        Boundary condition. For now, MUST be `"dft"`
+    bound : [list of] bound_like
+        Boundary condition.
 
     Returns
     -------
@@ -175,8 +178,6 @@ def coeff_upsample2(coeff, order, ndim=1, bound=BOUND_DEFAULT):
         Upsampled spline coefficients
     """
     bound = to_fourier(make_list(bound, ndim))
-    if any([b != 'dft' for b in bound]):
-        raise ValueError('Boundary condition must be dft')
     order = make_list(order, ndim)
     conv = getattr(F, f'conv{ndim}d')
 
@@ -217,12 +218,6 @@ def coeff_upsample2(coeff, order, ndim=1, bound=BOUND_DEFAULT):
 
     # permute/reshape
     coeff = coeff.reshape(batch + coeff.shape[-ndim:])
-
-    # lastdims = list(range(-ndim, 0))
-    # FF = ensure_shape(FF, coeff.shape[-ndim:], side='both', ceil=True)
-    # FF = torch.fft.fftn(torch.fft.ifftshift(FF))
-    # coeff = torch.fft.fftn(coeff, dim=lastdims) / FF
-    # coeff = torch.fft.ifftn(coeff, dim=lastdims).real
 
     # Fourier inversion
     lastdims = list(range(-ndim, 0))

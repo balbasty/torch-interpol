@@ -342,7 +342,7 @@ voxel_size : [sequence of] float
 norm : bool, default=False
     If True, compute the average energy across the field of view.
     Otherwise, compute the sum (integral) of the energy across the FOV.
-bound : bound_like, default='neumann'
+bound : bound_like
     Boundary conditions
 keepdim : bool, default=False
     Keep reduced dimensions
@@ -392,7 +392,7 @@ voxel_size : [sequence of] float
 norm : bool or int, default=False
     If True, compute the average energy across the field of view.
     Otherwise, compute the sum (integral) of the energy across the FOV.
-bound : bound_like, default='neumann'
+bound : bound_like
     Boundary conditions
 
 Returns
@@ -442,7 +442,7 @@ voxel_size : [sequence of] float
 norm : bool or int, default=False
     If True, compute the average energy across the field of view.
     Otherwise, compute the sum (integral) of the energy across the FOV.
-bound : bound_like, default='neumann'
+bound : bound_like
     Boundary conditions
 
 Returns
@@ -459,14 +459,16 @@ interpol.flow_upsample2(coeff, order, bound='circulant')
 Upsample spline coefficients of a flow by a factor 2, while
 minimizing the continuous mean squared error.
 
+!!! warning "Requires `torch >= 1.8`"
+
 Parameters
 ----------
 coeff : (*batch, *spatial, ndim) tensor
     Spline coefficients of the flow
 order : [list of] int
     Spline order
-bound : [list of] str
-    Boundary condition. For now, MUST be `"dft"`
+bound : [list of] bound_like
+    Boundary condition.
 
 Returns
 -------
@@ -492,8 +494,8 @@ order : [list of] int
     Spline order
 ndim : int
     The last `ndim` dimension(s) are upsampled
-bound : [list of] str
-    Boundary condition. For now, MUST be `"dft"`
+bound : [list of] bound_like
+    Boundary condition.
 
 Returns
 -------

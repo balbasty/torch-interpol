@@ -2,12 +2,17 @@ __all__ = [
     'flowreg',
     'flowmom',
     'flowconv',
+    'spline_from_coeff',
+    'spline_from_coeff_nd',
     'make_kernel',
     'make_absolute_kernel',
     'make_membrane_kernel',
     'make_bending_kernel',
     'make_div_kernel',
     'make_shears_kernel',
+    'make_kernels1d',
+    'make_splinekernels1d',
+    'make_evalkernels1d',
 ]
 import torch
 from torch.nn import functional as F
@@ -64,6 +69,8 @@ def flowconv(flow, kernel, bound=BOUND_DEFAULT):
         groups = 1
     elif kernel.ndim == ndim + 1:
         kernel = kernel.unsqueeze(1)
+        if len(kernel) == 1:
+            kernel = kernel.expand([ndim, 1, *kernelsize])
     elif kernel.ndim == ndim:
         kernel = kernel.expand([ndim, 1, *kernelsize])
     else:
@@ -183,9 +190,89 @@ def flowmom(flow, order, *args, bound=BOUND_DEFAULT, **kwargs):
     norm = kwargs.pop('norm', 0)
     if norm:
         kwargs['norm'] = flow.shape[-ndim-1:-1].numel()
-    kernel = make_kernel(ndim, order, *args, **kwargs)
+    kernel = make_kernel(ndim, order, *args, **kwargs,
+                         dtype=flow.dtype, device=flow.device)
     mom = flowconv(flow, kernel, bound=bound)
     return mom
+
+
+def spline_from_coeff(input, order, bound=BOUND_DEFAULT, dim=-1):
+    """
+    Evaluate a spline on the same grid as its coefficients.
+
+    This function uses a convolution, which is faster than naively
+    calling `grid_pull(coeff, identity_grid(...))`.
+
+    Parameters
+    ----------
+    input : tensor
+        Input tensor of spline coefficients
+    order : int
+        Spline order
+    bound : bound_like
+        Boundary conditions
+    dim : int
+        Dimension to convert
+
+    Returns
+    -------
+    output : tensor
+        Input tensor of spline values
+    """
+    backend = dict(dtype=input.dtype, device=input.device)
+    FF, *_ = make_splinekernels1d(order, **backend)
+    input = movedim1(input, dim, -1)
+    shape = input.shape
+
+    input = input.reshape([-1, input.shape[-1]])
+    input = pad(input, [0, (len(FF)-1)//2], side='both', mode=bound)
+    input = torch.nn.functional.conv1d(input[:, None, :], FF[None, None])
+    input = movedim1(input.reshape(shape), -1, dim)
+    return input
+
+
+def spline_from_coeff_nd(input, order, bound=BOUND_DEFAULT, ndim=None):
+    """
+    Evaluate a spline on the same grid as its coefficients.
+
+    This function uses a convolution, which is faster than naively
+    calling `grid_pull(coeff, identity_grid(...))`.
+
+    Parameters
+    ----------
+    input : tensor
+        Input tensor of spline coefficients
+    order : [sequence of] int
+        Spline order
+    bound : [sequence of] bound_like
+        Boundary conditions
+    ndim : int, default=`input.ndim`
+        Number of spatial dimensions
+
+    Returns
+    -------
+    output : tensor
+        Input tensor of spline values
+    """
+    ndim = ndim or input.ndim
+    shape = input.shape
+    backend = dict(dtype=input.dtype, device=input.device)
+    conv = getattr(F, f'conv{ndim}d')
+    # Build spline kernel
+    FF = 1
+    for d, o in enumerate(make_list(order, ndim)):
+        FF0, *_ = make_splinekernels1d(o, **backend)
+        FF = FF * _make_nd(FF0, ndim, d)
+    # Reshape + pad
+    bound = make_list(bound, ndim)
+    bound = bound[:1] + bound
+    input = input.reshape([-1, *input.shape[-ndim:]])
+    padding = [0] + [(n-1)//2 for n in FF.shape]
+    input = pad(input, padding, side='both', mode=bound)
+    # Convolve
+    input = conv(input[:, None, ...], FF[None, None])
+    input = input.reshape(shape)
+    return input
 
 
 # ======================================================================
@@ -522,7 +609,7 @@ def _make_nd(x, ndim, dim=0):
 
 
 def make_kernel(ndim, order, absolute=0, membrane=0, bending=0,
-                div=0, shears=0, voxel_size=None, norm=False,
+                div=0, shears=0, voxel_size=None, norm=False, fd=False,
                 *, kernels1d=None, **backend):
     r"""
     Generate a convolution kernel for a mixture of energies.
@@ -533,8 +620,8 @@ def make_kernel(ndim, order, absolute=0, membrane=0, bending=0,
     ----------
     ndim : int
         Number of spatial dimensions
-    order : int or 'fd'
-        Spline order. If 'fd', use finite-differences.
+    order : int
+        Spline order.
     absolute : float, default=0
         Penalty on absolute displacement
     membrane : float, default=0
@@ -551,6 +638,9 @@ def make_kernel(ndim, order, absolute=0, membrane=0, bending=0,
         If $\ge 0$, contains the number of voxels, and the average
         energy across the field of view is computed.
         Otherwise, compute the sum (integral) of the energy across the FOV.
+    fd : bool
+        Use finite differences computed on the evaluated field, rather
+        than analytical energies.
 
     Other Parameters
     ----------------
@@ -568,32 +658,35 @@ def make_kernel(ndim, order, absolute=0, membrane=0, bending=0,
         or `ndim` ND kernels if (`voxel_size` is a list)
         or a single ND kernel (if `voxel_size` is a scalar).
     """
-    fdiff = order == 'fd'
-    if not fdiff:
+    if fd:
         kernels1d = kernels1d or make_kernels1d(order, **backend)
-    args = (ndim, order, voxel_size, norm)
+    args = (ndim, order, voxel_size, norm, fd)
     kwargs = {'kernels1d': kernels1d, **backend}
     K = 0
     if absolute:
         K += make_absolute_kernel(*args, **kwargs) * absolute
     if membrane:
-        if fdiff and torch.is_tensor(K):
-            K = ensure_shape(K, [3] * ndim, side='both')
-        K += make_membrane_kernel(*args, **kwargs) * membrane
+        K0 = make_membrane_kernel(*args, **kwargs) * membrane
+        if torch.is_tensor(K) and K.shape != K0.shape:
+            K = ensure_shape(K, K0.shape, side='both')
+        K += K0
     if bending:
-        if fdiff and torch.is_tensor(K):
-            K = ensure_shape(K, [5] * ndim, side='both')
-        K += make_bending_kernel(*args, **kwargs) * bending
+        K0 = make_bending_kernel(*args, **kwargs) * bending
+        if torch.is_tensor(K) and K.shape != K0.shape:
+            K = ensure_shape(K, K0.shape, side='both')
+        K += K0
     if shears or div:
+        # FIXME
         if torch.is_tensor(K):
             slicer = (Ellipsis,)
-            if fdiff:
+            if fd:
                 if bending:
                     slicer += (slice(1, -1),) * ndim
                 elif K.shape[-1] < 3:
-                    K = ensure_shape(K, [3] * ndim, side='both')
+                    kshape = K.shape[:-ndim] + (3,) * ndim
+                    K = ensure_shape(K, kshape, side='both')
             K0 = K
-            K = K0.new_zeros([ndim, ndim] + K0.shape[-ndim:])
+            K = K0.new_zeros((ndim, ndim) + K0.shape[-ndim:])
             movedim1(K.diagonal(0, 0, 1), -1, 0).copy_(K0)
             if div:
                 K[slicer] += make_div_kernel(*args, **kwargs) * div
@@ -607,7 +700,7 @@ def make_kernel(ndim, order, absolute=0, membrane=0, bending=0,
     return K
 
 
-def make_absolute_kernel(ndim, order, voxel_size=None, norm=False,
+def make_absolute_kernel(ndim, order, voxel_size=None, norm=False, fd=False,
                          *, kernels1d=None, **backend):
     r"""
     Generate a convolution kernel for the Absolute energy.
@@ -642,9 +735,13 @@ def make_absolute_kernel(ndim, order, voxel_size=None, norm=False,
         `ndim` ND kernels (if `voxel_size` is a list) or
         a single ND kernel (if `voxel_size` is a scalar).
     """
-    if order == 'fd':
-        order = 0
-    FF, *_ = kernels1d or make_kernels1d(order, **backend)
+    if fd:
+        FF, *_ = make_splinekernels1d(order, **backend)
+        FF = FF[None, None]
+        FF = F.conv1d(ensure_shape(FF, [4*FF.shape[-1]-3], side='both'), FF)
+        FF = FF[0, 0]
+    else:
+        FF, *_ = kernels1d or make_kernels1d(order, **backend)
     FF = FF.to(**backend)
     # build kernel
     K = 1
@@ -664,7 +761,7 @@ def make_absolute_kernel(ndim, order, voxel_size=None, norm=False,
     return K
 
 
-def make_membrane_kernel(ndim, order, voxel_size=None, norm=False,
+def make_membrane_kernel(ndim, order, voxel_size=None, norm=False, fd=False,
                          *, kernels1d=None, **backend):
     r"""
     Generate a convolution kernel for the Membrane energy.
@@ -699,8 +796,14 @@ def make_membrane_kernel(ndim, order, voxel_size=None, norm=False,
         `ndim` ND kernels (if `voxel_size` is a list)
         or a single ND kernel (if `voxel_size` is a scalar).
     """
-    if order == 'fd':
-        return make_membrane_kernel_fd(ndim, voxel_size, norm, **backend)
+    if fd:
+        backend['voxel_size'] = voxel_size
+        backend['norm'] = norm
+        kernel = make_membrane_kernel_fd(ndim, **backend)
+        if order > 1:
+            kernel = _fd_conv_eval(kernel, ndim, order)
+        return kernel
+
     FF, GG, *_ = kernels1d or make_kernels1d(order, **backend)
     FF, GG = FF.to(**backend), GG.to(**backend)
     vx = voxel_size
@@ -730,7 +833,7 @@ def make_membrane_kernel(ndim, order, voxel_size=None, norm=False,
     return K
 
 
-def make_bending_kernel(ndim, order, voxel_size=None, norm=False,
+def make_bending_kernel(ndim, order, voxel_size=None, norm=False, fd=False,
                         *, kernels1d=None, **backend):
     r"""
     Generate a convolution kernel for the Bending energy.
@@ -765,8 +868,13 @@ def make_bending_kernel(ndim, order, voxel_size=None, norm=False,
         `ndim` ND kernels (if `voxel_size` is a list)
         or a single ND kernel (if `voxel_size` is a scalar).
     """
-    if order == 'fd':
-        return make_bending_kernel_fd(ndim, voxel_size, norm, **backend)
+    if fd:
+        backend['voxel_size'] = voxel_size
+        backend['norm'] = norm
+        kernel = make_bending_kernel_fd(ndim, **backend)
+        if order > 1:
+            kernel = _fd_conv_eval(kernel, ndim, order)
+        return kernel
     FF, GG, HH, _ = kernels1d or make_kernels1d(order, **backend)
     FF, GG, HH = FF.to(**backend), GG.to(**backend), HH.to(**backend)
     vx = voxel_size
@@ -801,7 +909,7 @@ def make_bending_kernel(ndim, order, voxel_size=None, norm=False,
     return K
 
 
-def make_div_kernel(ndim, order, voxel_size=None, norm=False,
+def make_div_kernel(ndim, order, voxel_size=None, norm=False, fd=False,
                     *, kernels1d=None, **backend):
     r"""
     Generate a convolution kernel for the divergence part of the
@@ -837,8 +945,13 @@ def make_div_kernel(ndim, order, voxel_size=None, norm=False,
         `ndim` ND kernels (if `voxel_size` is a list)
         or a single ND kernel (if `voxel_size` is a scalar).
     """
-    if order == 'fd':
-        return make_div_kernel_fd(ndim, voxel_size, norm, **backend)
+    if fd:
+        backend['voxel_size'] = voxel_size
+        backend['norm'] = norm
+        kernel = make_div_kernel_fd(ndim, **backend)
+        if order > 1:
+            kernel = _fd_conv_eval(kernel, ndim, order)
+        return kernel
     FF, GG, _, FG = kernels1d or make_kernels1d(order, **backend)
     FF, GG, FG = FF.to(**backend), GG.to(**backend), FG.to(**backend)
     vx = voxel_size
@@ -867,7 +980,7 @@ def make_div_kernel(ndim, order, voxel_size=None, norm=False,
     return K
 
 
-def make_shears_kernel(ndim, order, voxel_size=None, norm=False,
+def make_shears_kernel(ndim, order, voxel_size=None, norm=False, fd=False,
                        *, kernels1d=None, **backend):
     r"""
     Generate a convolution kernel for the shears part of the
@@ -903,17 +1016,50 @@ def make_shears_kernel(ndim, order, voxel_size=None, norm=False,
         `ndim` ND kernels (if `voxel_size` is a list)
         or a single ND kernel (if `voxel_size` is a scalar).
     """
-    if order != 'fd':
+    if not fd:
         FF, GG, HH, FG = kernels1d or make_kernels1d(order, **backend)
         FF, GG, FG = FF.to(**backend), GG.to(**backend), FG.to(**backend)
         kernels1d = (FF, GG, HH, FG)
-    membrane = make_membrane_kernel(ndim, order, voxel_size, norm,
-                                    kernels1d=kernels1d, **backend)
-    lame_div = make_div_kernel(ndim, order, voxel_size, norm,
-                               kernels1d=kernels1d, **backend)
+    backend['ndim'] = ndim
+    backend['order'] = order
+    backend['voxel_size'] = voxel_size
+    backend['norm'] = norm
+    backend['fd'] = fd
+    backend['kernels1d'] = kernels1d
+    membrane = make_membrane_kernel(**backend)
+    lame_div = make_div_kernel(**backend)
     K = lame_div
     movedim1(K.diagonal(0, 0, 1), -1, 0).add_(membrane)
     return K
+
+
+def _fd_conv_eval(kernel, ndim, order):
+    # Convolve a finite-difference kernel with a kernel that evaluates
+    # the spline-encoded field on the left and right
+    conv = getattr(F, f'conv{ndim}d')
+    nbatch = kernel.ndim - ndim
+    # First, compute auto-correlation of spline weights
+    FF, *_ = make_splinekernels1d(
+        order, dtype=kernel.dtype, device=kernel.device)
+    FF = FF[None, None]
+    FF = F.conv1d(ensure_shape(FF, [4*FF.shape[-1]-3], side='both'), FF)
+    FF = FF[0, 0]
+    # Second make it an ND kernel
+    FF0 = FF
+    for _ in range(ndim-1):
+        FF0 = FF0[..., None]
+        FF = FF * FF0
+    # Prepare shapes for convolution
+    while kernel.ndim < ndim+2:
+        kernel = kernel[None]
+    shape = kernel.shape[:2] + (kernel.shape[-1]+3*(FF.shape[-1]-1),)*ndim
+    kernel = ensure_shape(kernel, shape, side='both')
+    FF = FF.expand([kernel.shape[1], 1, *FF.shape])
+    # Convolve
+    kernel = conv(kernel, FF, groups=kernel.shape[1])
+    while kernel.ndim > ndim + nbatch:
+        kernel = kernel[0]
+    return kernel
 
 
 def make_membrane_kernel_fd(ndim, voxel_size=None, norm=False, **backend):
