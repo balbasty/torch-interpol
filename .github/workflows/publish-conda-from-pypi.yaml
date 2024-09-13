@@ -33,13 +33,17 @@ jobs:
         OVERRIDE: ${{ inputs.override }}
       run: echo "$PLATFORMS // $DRYRUN // $OVERRIDE"
     - uses: actions/checkout@v3
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-version: latest
         mamba-version: "*"
         channels: conda-forge
         channel-priority: true
         activate-environment: build
+    - name: Remove channel "defaults"
+      shell: bash -el {0}
+      run: |
+          mamba config --remove channels defaults
     - name: Install boa / anaconda
       shell: bash -el {0}
       run: |
