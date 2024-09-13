@@ -32,6 +32,7 @@ jobs:
         DRYRUN: ${{ inputs.dry-run }}
         OVERRIDE: ${{ inputs.override }}
       run: echo "$PLATFORMS // $DRYRUN // $OVERRIDE"
+    - uses: actions/checkout@v3
     - uses: conda-incubator/setup-miniconda@v2
       with:
         miniforge-version: latest
