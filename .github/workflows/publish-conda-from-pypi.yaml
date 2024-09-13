@@ -43,7 +43,7 @@ jobs:
     - name: Remove channel "defaults"
       shell: bash -el {0}
       run: |
-          mamba config --remove channels defaults
+          conda config --remove channels defaults
     - name: Install boa / anaconda
       shell: bash -el {0}
       run: |
