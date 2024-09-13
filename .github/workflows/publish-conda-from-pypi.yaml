@@ -54,7 +54,7 @@ jobs:
         OPT+=",${V}"
         done
         OPT="{python: [${OPT:1}]}"
-        conda mambabuild --variants "$OPT" -c pytorch --croot . .github/.conda
+        conda mambabuild --variants "$OPT" -c pytorch --croot . conda
     - name: Convert
       shell: bash -el {0}
       env:
