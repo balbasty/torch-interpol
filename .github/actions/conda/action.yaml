@@ -21,7 +21,7 @@ inputs:
     description: 'Override'
     required: false
     default: true
-  password: 
+  password:
     required: true
 runs:
   using: "composite"
@@ -33,11 +33,11 @@ runs:
       DRYRUN: ${{ inputs.dry-run }}
       OVERRIDE: ${{ inputs.override }}
     run: echo "$TAG // $PLATFORMS // $DRYRUN // $OVERRIDE"
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v6
     with:
       fetch-depth: 0
       ref: ${{ inputs.tag }}
-  - uses: conda-incubator/setup-miniconda@v2
+  - uses: conda-incubator/setup-miniconda@v3
     with:
       mamba-version: "*"
       channels: conda-forge,defaults
@@ -73,7 +73,7 @@ runs:
   - name: "Publish (dry run: ${{ inputs.dry-run }})"
     if: inputs.dry-run == 'false'
     shell: bash -el {0}
-    env: 
+    env:
       OVERRIDE: ${{ inputs.override }}
       PLATFORMS: ${{ inputs.platforms }}
       ANACONDA_API_TOKEN: ${{ inputs.password }}

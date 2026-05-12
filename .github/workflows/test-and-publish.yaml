@@ -53,7 +53,7 @@ jobs:
           - python-version: "3.14"
             pytorch-version: "2.10"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/test
         with:
           python-version: ${{ matrix.python-version }}
@@ -65,7 +65,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/pypi
         if: |
           contains(inputs.publish, 'pypi') || contains(inputs.publish, 'test')
@@ -87,7 +87,7 @@ jobs:
     if: (!inputs.test) && inputs.publish != 'none'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/pypi
         if: |
           contains(inputs.publish, 'pypi') || contains(inputs.publish, 'test')

@@ -16,17 +16,17 @@ inputs:
     # {pypi, test, test+pypi}
   pypi-password:
     required: true
-  test-password: 
+  test-password:
     required: true
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
         ref: ${{ inputs.tag }}
     - name: Setup Python ${{ inputs.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
     - name: Install dependencies for building package

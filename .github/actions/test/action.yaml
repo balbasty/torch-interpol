@@ -16,10 +16,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
       with:
         ref: ${{ inputs.tag }}
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: conda-incubator/setup-miniconda@v3
       with:
         mamba-version: "*"
         python-version: ${{ inputs.python-version }}
@@ -27,7 +27,7 @@ runs:
         activate-environment: test-env
     - name: Install dependencies
       shell: bash -el {0}
-      env: 
+      env:
         PYTORCH_VERSION: ${{ inputs.pytorch-version }}
       run: |
         mamba install pytorch=${PYTORCH_VERSION} pytest
