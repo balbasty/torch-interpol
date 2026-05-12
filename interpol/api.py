@@ -15,10 +15,12 @@ __all__ = [
     'add_identity_grid_',
     'affine_grid',
 ]
-
+# dependencies
 import torch
+
+# intternals
 from .utils import expanded_shape, matvec
-from .jit_utils import movedim1, meshgrid
+from .jit_utils import movedim1, meshgrid, jitscript
 from .autograd import (GridPull, GridPush, GridCount, GridGrad,
                        SplineCoeff, SplineCoeffND)
 from . import backend, jitfields
@@ -488,7 +490,7 @@ def identity_grid(shape, dtype=None, device=None):
     return grid
 
 
-@torch.jit.script
+@jitscript
 def add_identity_grid_(disp):
     """Adds the identity grid to a displacement field, inplace.
 
@@ -515,7 +517,7 @@ def add_identity_grid_(disp):
     return disp
 
 
-@torch.jit.script
+@jitscript
 def add_identity_grid(disp):
     """Adds the identity grid to a displacement field.
 

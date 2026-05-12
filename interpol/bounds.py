@@ -1,8 +1,13 @@
-import torch
+# stdlib
 from enum import Enum
 from typing import Optional
-from .jit_utils import floor_div
-Tensor = torch.Tensor
+
+# dependencies
+import torch
+from torch import Tensor
+
+# internals
+from .jit_utils import floor_div, jitscript
 
 
 class BoundType(Enum):
@@ -21,7 +26,7 @@ class ExtrapolateType(Enum):
     hist = 2   # threshold: (-0.5, n-0.5)
 
 
-@torch.jit.script
+@jitscript
 class Bound:
 
     def __init__(self, bound_type: int = 3):

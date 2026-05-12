@@ -1,13 +1,18 @@
 """Isotropic 0-th order splines ("nearest neighbor")"""
-import torch
-from .bounds import Bound
-from .jit_utils import (sub2ind_list, make_sign,
-                        inbounds_mask_3d, inbounds_mask_2d, inbounds_mask_1d)
+# stdlib
 from typing import List, Optional
-Tensor = torch.Tensor
+
+# dependencies
+import torch
+from torch import Tensor
+
+# internals
+from .bounds import Bound
+from .jit_utils import (sub2ind_list, make_sign, jitscript,
+                        inbounds_mask_3d, inbounds_mask_2d, inbounds_mask_1d)
 
 
-@torch.jit.script
+@jitscript
 def get_indices(g, n: int, bound: Bound):
     g0 = g.round().long()
     sign0 = bound.transform(g0, n)
@@ -20,7 +25,7 @@ def get_indices(g, n: int, bound: Bound):
 # ======================================================================
 
 
-@torch.jit.script
+@jitscript
 def pull3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX, iY, iZ) tensor
@@ -48,7 +53,7 @@ def pull3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     gz, signz = get_indices(gz, nz, boundz)
 
     # gather
-    inp = inp.reshape(inp.shape[:2] + [-1])
+    inp = inp.reshape(list(inp.shape[:2]) + [-1])
     idx = sub2ind_list([gx, gy, gz], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out = inp.gather(-1, idx)
@@ -61,7 +66,7 @@ def pull3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
            extrapolate: int = 1):
     """
@@ -79,7 +84,7 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     ishape = inp.shape[-dim:]
     g = g.reshape([g.shape[0], 1, -1, dim])
     gx, gy, gz = torch.unbind(g, -1)
-    inp = inp.reshape(inp.shape[:2] + [-1])
+    inp = inp.reshape(list(inp.shape[:2]) + [-1])
     batch = max(inp.shape[0], gx.shape[0])
     channel = inp.shape[1]
 
@@ -108,7 +113,7 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
         inp *= mask
     out.scatter_add_(-1, idx, inp)
 
-    out = out.reshape(out.shape[:2] + shape)
+    out = out.reshape(list(out.shape[:2]) + list(shape))
     return out
 
 
@@ -117,7 +122,7 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
 # ======================================================================
 
 
-@torch.jit.script
+@jitscript
 def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX, iY) tensor
@@ -144,7 +149,7 @@ def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     gy, signy = get_indices(gy, ny, boundy)
 
     # gather
-    inp = inp.reshape(inp.shape[:2] + [-1])
+    inp = inp.reshape(list(inp.shape[:2]) + [-1])
     idx = sub2ind_list([gx, gy], shape)
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out = inp.gather(-1, idx)
@@ -157,7 +162,7 @@ def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def push2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
            extrapolate: int = 1):
     """
@@ -175,7 +180,7 @@ def push2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     ishape = inp.shape[-dim:]
     g = g.reshape([g.shape[0], 1, -1, dim])
     gx, gy = torch.unbind(g, -1)
-    inp = inp.reshape(inp.shape[:2] + [-1])
+    inp = inp.reshape(list(inp.shape[:2]) + [-1])
     batch = max(inp.shape[0], gx.shape[0])
     channel = inp.shape[1]
 
@@ -203,7 +208,7 @@ def push2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
         inp = inp * mask
     out.scatter_add_(-1, idx, inp)
 
-    out = out.reshape(out.shape[:2] + shape)
+    out = out.reshape(list(out.shape[:2]) + list(shape))
     return out
 
 
@@ -212,7 +217,7 @@ def push2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
 # ======================================================================
 
 
-@torch.jit.script
+@jitscript
 def pull1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX) tensor
@@ -238,7 +243,7 @@ def pull1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     gx, signx = get_indices(gx, nx, boundx)
 
     # gather
-    inp = inp.reshape(inp.shape[:2] + [-1])
+    inp = inp.reshape(list(inp.shape[:2]) + [-1])
     idx = gx
     idx = idx.expand([batch, channel, idx.shape[-1]])
     out = inp.gather(-1, idx)
@@ -251,7 +256,7 @@ def pull1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
            extrapolate: int = 1):
     """
@@ -269,7 +274,7 @@ def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     ishape = inp.shape[-dim:]
     g = g.reshape([g.shape[0], 1, -1, dim])
     gx = g.squeeze(-1)
-    inp = inp.reshape(inp.shape[:2] + [-1])
+    inp = inp.reshape(list(inp.shape[:2]) + [-1])
     batch = max(inp.shape[0], gx.shape[0])
     channel = inp.shape[1]
 
@@ -296,7 +301,7 @@ def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
         inp = inp * mask
     out.scatter_add_(-1, idx, inp)
 
-    out = out.reshape(out.shape[:2] + shape)
+    out = out.reshape(list(out.shape[:2]) + list(shape))
     return out
 
 
@@ -305,7 +310,7 @@ def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
 # ======================================================================
 
 
-@torch.jit.script
+@jitscript
 def grad(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, *ishape) tensor
@@ -323,7 +328,7 @@ def grad(inp, g, bound: List[Bound], extrapolate: int = 1):
                        dtype=inp.dtype, device=inp.device)
 
 
-@torch.jit.script
+@jitscript
 def pushgrad(inp, g, shape: Optional[List[int]], bound: List[Bound],
              extrapolate: int = 1):
     """
@@ -349,7 +354,7 @@ def pushgrad(inp, g, shape: Optional[List[int]], bound: List[Bound],
                        dtype=inp.dtype, device=inp.device)
 
 
-@torch.jit.script
+@jitscript
 def hess(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, *ishape) tensor

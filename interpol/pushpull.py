@@ -5,33 +5,38 @@ differentiable functions.
 
 Note
 ----
-.. I removed @torch.jit.script from these entry-points because compiling
+.. I removed @compile from these entry-points because compiling
    all possible combinations of bound+interpolation made the first call
    extremely slow.
 .. I am not using the dot/multi_dot helpers even though they should be
    more efficient that "multiply and sum" because I haven't had the time
    to test them. It would be worth doing it.
 """
-import torch
+# stdlib
 from typing import List, Optional, Tuple
-from .jit_utils import list_all, dot, dot_multi, pad_list_int
+
+# dependencies
+import torch
+from torch import Tensor
+
+# internals
+from .jit_utils import list_all, dot, dot_multi, pad_list_int, jitscript
 from .bounds import Bound
 from .splines import Spline
 from . import iso0, iso1, nd
-Tensor = torch.Tensor
 
 
-@torch.jit.script
+@jitscript
 def make_bound(bound: List[int]) -> List[Bound]:
     return [Bound(b) for b in bound]
 
 
-@torch.jit.script
+@jitscript
 def make_spline(spline: List[int]) -> List[Spline]:
     return [Spline(s) for s in spline]
 
 
-# @torch.jit.script
+# @compile
 def grid_pull(inp, grid, bound: List[int], interpolation: List[int],
               extrapolate: int):
     """
@@ -66,7 +71,7 @@ def grid_pull(inp, grid, bound: List[int], interpolation: List[int],
     return nd.pull(inp, grid, bound_fn, spline_fn, extrapolate)
 
 
-# @torch.jit.script
+# @compile
 def grid_push(inp, grid, shape: Optional[List[int]], bound: List[int],
               interpolation: List[int], extrapolate: int):
     """
@@ -102,7 +107,7 @@ def grid_push(inp, grid, shape: Optional[List[int]], bound: List[int],
     return nd.push(inp, grid, shape, bound_fn, spline_fn, extrapolate)
 
 
-# @torch.jit.script
+# @compile
 def grid_count(grid, shape: Optional[List[int]], bound: List[int],
               interpolation: List[int], extrapolate: int):
     """
@@ -142,7 +147,7 @@ def grid_count(grid, shape: Optional[List[int]], bound: List[int],
     return nd.push(inp, grid, shape, bound_fn, spline_fn, extrapolate)
 
 
-# @torch.jit.script
+# @compile
 def grid_grad(inp, grid, bound: List[int], interpolation: List[int],
               extrapolate: int):
     """
@@ -172,10 +177,10 @@ def grid_grad(inp, grid, bound: List[int], interpolation: List[int],
     return nd.grad(inp, grid, bound_fn, spline_fn, extrapolate)
 
 
-# @torch.jit.script
+# @compile
 def grid_pushgrad(inp, grid, shape: List[int], bound: List[int],
                   interpolation: List[int], extrapolate: int):
-    """ /!\ Used only in backward pass of grid_grad
+    r""" /!\ Used only in backward pass of grid_grad
     inp: (B, C, *spatial_in, D) tensor
     grid: (B, *spatial_in, D) tensor
     shape: List{D}[int], optional
@@ -203,10 +208,10 @@ def grid_pushgrad(inp, grid, shape: List[int], bound: List[int],
     return nd.pushgrad(inp, grid, shape, bound_fn, spline_fn, extrapolate)
 
 
-# @torch.jit.script
+# @compile
 def grid_hess(inp, grid, bound: List[int], interpolation: List[int],
               extrapolate: int):
-    """ /!\ Used only in backward pass of grid_grad
+    r""" /!\ Used only in backward pass of grid_grad
     inp: (B, C, *spatial_in) tensor
     grid: (B, *spatial_out, D) tensor
     bound: List{D}[int] tensor
@@ -233,7 +238,7 @@ def grid_hess(inp, grid, bound: List[int], interpolation: List[int],
     return nd.hess(inp, grid, bound_fn, spline_fn, extrapolate)
 
 
-# @torch.jit.script
+# @compile
 def grid_pull_backward(grad, inp, grid, bound: List[int],
                        interpolation: List[int], extrapolate: int) \
         -> Tuple[Optional[Tensor], Optional[Tensor], ]:
@@ -258,7 +263,7 @@ def grid_pull_backward(grad, inp, grid, bound: List[int],
     return grad_inp, grad_grid
 
 
-# @torch.jit.script
+# @compile
 def grid_push_backward(grad, inp, grid, bound: List[int],
                        interpolation: List[int], extrapolate: int) \
         -> Tuple[Optional[Tensor], Optional[Tensor], ]:
@@ -282,7 +287,7 @@ def grid_push_backward(grad, inp, grid, bound: List[int],
     return grad_inp, grad_grid
 
 
-# @torch.jit.script
+# @compile
 def grid_count_backward(grad, grid, bound: List[int],
                        interpolation: List[int], extrapolate: int) \
         -> Optional[Tensor]:
@@ -299,7 +304,7 @@ def grid_count_backward(grad, grid, bound: List[int],
     return None
 
 
-# @torch.jit.script
+# @compile
 def grid_grad_backward(grad, inp, grid, bound: List[int],
                        interpolation: List[int], extrapolate: int) \
         -> Tuple[Optional[Tensor], Optional[Tensor]]:

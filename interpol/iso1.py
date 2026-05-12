@@ -1,13 +1,18 @@
 """Isotropic 1-st order splines ("linear/bilinear/trilinear")"""
-import torch
-from .bounds import Bound
-from .jit_utils import (sub2ind_list, make_sign,
-                        inbounds_mask_3d, inbounds_mask_2d, inbounds_mask_1d)
+# stdlib
 from typing import List, Tuple, Optional
-Tensor = torch.Tensor
+
+# dependencies
+import torch
+from torch import Tensor
+
+# internal
+from .bounds import Bound
+from .jit_utils import (sub2ind_list, make_sign, jitscript,
+                        inbounds_mask_3d, inbounds_mask_2d, inbounds_mask_1d)
 
 
-@torch.jit.script
+@jitscript
 def get_weights_and_indices(g, n: int, bound: Bound) \
         -> Tuple[Tensor, Tensor, Tensor, Optional[Tensor], Optional[Tensor]]:
     g0 = g.floor().long()
@@ -25,7 +30,7 @@ def get_weights_and_indices(g, n: int, bound: Bound) \
 # ======================================================================
 
 
-@torch.jit.script
+@jitscript
 def pull3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX, iY, iZ) tensor
@@ -133,7 +138,7 @@ def pull3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
            extrapolate: int = 1):
     """
@@ -265,7 +270,7 @@ def push3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     return out
 
 
-@torch.jit.script
+@jitscript
 def grad3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX, iY, iZ) tensor
@@ -387,7 +392,7 @@ def grad3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def pushgrad3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
                extrapolate: int = 1):
     """
@@ -543,7 +548,7 @@ def pushgrad3d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     return out
 
 
-@torch.jit.script
+@jitscript
 def hess3d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX, iY, iZ) tensor
@@ -680,7 +685,7 @@ def hess3d(inp, g, bound: List[Bound], extrapolate: int = 1):
 # ======================================================================
 
 
-@torch.jit.script
+@jitscript
 def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX, iY) tensor
@@ -698,7 +703,7 @@ def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     channel = inp.shape[1]
     shape = list(inp.shape[-dim:])
     nx, ny = shape
-    
+
     # mask of inbounds voxels
     mask = inbounds_mask_2d(extrapolate, gx, gy, nx, ny)
 
@@ -751,7 +756,7 @@ def pull2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def push2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
            extrapolate: int = 1):
     """
@@ -838,7 +843,7 @@ def push2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     return out
 
 
-@torch.jit.script
+@jitscript
 def grad2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX, iY) tensor
@@ -914,7 +919,7 @@ def grad2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def pushgrad2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
                extrapolate: int = 1):
     """
@@ -1009,7 +1014,7 @@ def pushgrad2d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     return out
 
 
-@torch.jit.script
+@jitscript
 def hess2d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX, iY) tensor
@@ -1091,7 +1096,7 @@ def hess2d(inp, g, bound: List[Bound], extrapolate: int = 1):
 # ======================================================================
 
 
-@torch.jit.script
+@jitscript
 def pull1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX) tensor
@@ -1143,7 +1148,7 @@ def pull1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
            extrapolate: int = 1):
     """
@@ -1207,7 +1212,7 @@ def push1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     return out
 
 
-@torch.jit.script
+@jitscript
 def grad1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX) tensor
@@ -1261,7 +1266,7 @@ def grad1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     return out
 
 
-@torch.jit.script
+@jitscript
 def pushgrad1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
                extrapolate: int = 1):
     """
@@ -1325,7 +1330,7 @@ def pushgrad1d(inp, g, shape: Optional[List[int]], bound: List[Bound],
     return out
 
 
-@torch.jit.script
+@jitscript
 def hess1d(inp, g, bound: List[Bound], extrapolate: int = 1):
     """
     inp: (B, C, iX) tensor

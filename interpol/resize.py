@@ -4,10 +4,13 @@ based on grid_pull.
 """
 __all__ = ['resize']
 
+# dependencies
+import torch
+
+# internals
 from .api import grid_pull
 from .utils import make_list, meshgrid_ij
 from . import backend, jitfields
-import torch
 
 
 def resize(image, factor=None, shape=None, anchor='c',
@@ -117,4 +120,3 @@ def resize(image, factor=None, shape=None, anchor='c',
     resized = grid_pull(image, grid, **kwargs)
 
     return resized
-

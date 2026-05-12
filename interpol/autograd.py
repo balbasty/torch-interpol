@@ -1,5 +1,9 @@
 """AutoGrad version of pull/push/count/grad"""
+
+# dependencies
 import torch
+
+# internals
 from .coeff import spline_coeff_nd, spline_coeff
 from .bounds import BoundType
 from .splines import InterpolationType
@@ -9,6 +13,8 @@ from .pushpull import (
     grid_count, grid_count_backward,
     grid_grad, grid_grad_backward)
 from .utils import fake_decorator
+
+# backward compatibility
 try:
     from torch.amp import custom_fwd, custom_bwd
 except (ModuleNotFoundError, ImportError):

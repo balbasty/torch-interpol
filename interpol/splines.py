@@ -1,7 +1,12 @@
 """Weights and derivatives of spline orders 0 to 7."""
-import torch
+# stdlib
 from enum import Enum
-from .jit_utils import square, cube, pow4, pow5, pow6, pow7
+
+# dependencies
+import torch
+
+# internals
+from .jit_utils import square, cube, pow4, pow5, pow6, pow7, jitscript
 
 
 class InterpolationType(Enum):
@@ -15,7 +20,7 @@ class InterpolationType(Enum):
     seventh = 7
 
 
-@torch.jit.script
+@jitscript
 class Spline:
 
     def __init__(self, order: int = 1):
@@ -193,4 +198,3 @@ class Spline:
                                            torch.where(x < 3, h_mid_up,
                                                        h_up)))
         raise NotImplementedError
-

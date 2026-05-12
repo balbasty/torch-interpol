@@ -1,14 +1,21 @@
+# dependencies
+import torch
+
+# internals
+from .utils import make_list
+
+# optionals
 try:
     import jitfields
     available = True
     from jitfields.pushpull import (
-        pull as jitpull, 
-        push as jitpush, 
-        count as jitcount, 
+        pull as jitpull,
+        push as jitpush,
+        count as jitcount,
         grad as jitgrad,
     )
     from jitfields.resize import (
-        resize as jitresize, 
+        resize as jitresize,
         restrict as jitrestrict,
     )
     from jitfields.splinc import (
@@ -23,8 +30,6 @@ except (ImportError, ModuleNotFoundError):
     jitpull = jitpush = jitcount = jitgrad = None
     jitcoeff = jitcoeff_ = jitcoeffnd = jitcoeffnd_ = None
     jitresize = jitrestrict = None
-from .utils import make_list
-import torch
 
 
 def first2last(input, ndim):

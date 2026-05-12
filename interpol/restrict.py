@@ -1,9 +1,12 @@
 __all__ = ['restrict']
 
+# dependencies
+import torch
+
+# internals
 from .api import grid_push
 from .utils import make_list, meshgrid_ij
 from . import backend, jitfields
-import torch
 
 
 def restrict(image, factor=None, shape=None, anchor='c',

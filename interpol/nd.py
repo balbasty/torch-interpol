@@ -1,13 +1,20 @@
 """Generic N-dimensional version: any combination of spline orders"""
-import torch
+# stdlib
 from typing import List, Optional, Tuple
+
+# dependencies
+import torch
+from torch import Tensor
+
+# internals
 from .bounds import Bound
 from .splines import Spline
-from .jit_utils import sub2ind_list, make_sign, list_prod_int, cartesian_prod
-Tensor = torch.Tensor
+from .jit_utils import (
+    sub2ind_list, make_sign, list_prod_int, cartesian_prod, jitscript
+)
 
 
-@torch.jit.script
+@jitscript
 def inbounds_mask(extrapolate: int, grid, shape: List[int])\
         -> Optional[Tensor]:
     # mask of inbounds voxels
@@ -27,7 +34,7 @@ def inbounds_mask(extrapolate: int, grid, shape: List[int])\
     return mask
 
 
-@torch.jit.script
+@jitscript
 def get_weights(grid, bound: List[Bound], spline: List[Spline],
                 shape: List[int], grad: bool = False, hess: bool = False) \
         -> Tuple[List[List[Tensor]],
@@ -77,7 +84,7 @@ def get_weights(grid, bound: List[Bound], spline: List[Spline],
     return weights, grads, hesss, coords, signs
 
 
-@torch.jit.script
+@jitscript
 def pull(inp, grid, bound: List[Bound], spline: List[Spline],
          extrapolate: int = 1):
     """
@@ -143,7 +150,7 @@ def pull(inp, grid, bound: List[Bound], spline: List[Spline],
     return out
 
 
-@torch.jit.script
+@jitscript
 def push(inp, grid, shape: Optional[List[int]], bound: List[Bound],
          spline: List[Spline], extrapolate: int = 1):
     """
@@ -213,7 +220,7 @@ def push(inp, grid, shape: Optional[List[int]], bound: List[Bound],
     return out
 
 
-@torch.jit.script
+@jitscript
 def grad(inp, grid, bound: List[Bound], spline: List[Spline],
          extrapolate: int = 1):
     """
@@ -288,7 +295,7 @@ def grad(inp, grid, bound: List[Bound], spline: List[Spline],
     return out
 
 
-@torch.jit.script
+@jitscript
 def pushgrad(inp, grid, shape: Optional[List[int]], bound: List[Bound],
              spline: List[Spline], extrapolate: int = 1):
     """
@@ -364,7 +371,7 @@ def pushgrad(inp, grid, shape: Optional[List[int]], bound: List[Bound],
     return out
 
 
-@torch.jit.script
+@jitscript
 def hess(inp, grid, bound: List[Bound], spline: List[Spline],
          extrapolate: int = 1):
     """

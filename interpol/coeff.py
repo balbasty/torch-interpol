@@ -2,12 +2,12 @@
 
 These functions are ported from the C routines in SPM's bsplines.c
 by John Ashburner, which are themselves ports from Philippe Thevenaz's
-code. JA furthermore derived the initial conditions for the DFT 
+code. JA furthermore derived the initial conditions for the DFT
 ("wrap around") boundary conditions.
 
 Note that similar routines are available in scipy with boundary conditions
-DCT1 ("mirror"), DCT2 ("reflect") and DFT ("wrap"); all derived by 
-P. Thevenaz, according to the comments. Our DCT2 boundary conditions 
+DCT1 ("mirror"), DCT2 ("reflect") and DFT ("wrap"); all derived by
+P. Thevenaz, according to the comments. Our DCT2 boundary conditions
 are ported from scipy.
 
 Only boundary conditions DCT1, DCT2 and DFT are implemented.
@@ -24,14 +24,19 @@ References
     "Splines: A Perfect Fit for Signal and Image Processing,"
     IEEE Signal Processing Magazine 16(6):22-38 (1999).
 """
-import torch
+# stdlib
 import math
 from typing import List, Optional
-from .jit_utils import movedim1
+
+# dependencies
+import torch
+
+# internals
+from .jit_utils import movedim1, jitscript
 from .pushpull import pad_list_int
 
 
-@torch.jit.script
+@jitscript
 def get_poles(order: int) -> List[float]:
     empty: List[float] = []
     if order in (0, 1):
@@ -65,7 +70,7 @@ def get_poles(order: int) -> List[float]:
     raise NotImplementedError
 
 
-@torch.jit.script
+@jitscript
 def get_gain(poles: List[float]) -> float:
     lam: float = 1.
     for pole in poles:
@@ -73,12 +78,12 @@ def get_gain(poles: List[float]) -> float:
     return lam
 
 
-@torch.jit.script
+@jitscript
 def _dot(x, y):
     return x.unsqueeze(-2).matmul(y.unsqueeze(-1)).squeeze(-1).squeeze(-1)
 
 
-@torch.jit.script
+@jitscript
 def dft_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
 
     assert inp.shape[dim] > 1
@@ -105,7 +110,7 @@ def dft_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
     return out
 
 
-@torch.jit.script
+@jitscript
 def dct1_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
 
     n = inp.shape[dim]
@@ -149,7 +154,7 @@ def dct1_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
     return out
 
 
-@torch.jit.script
+@jitscript
 def dct2_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
     # Ported from scipy:
     # https://github.com/scipy/scipy/blob/master/scipy/ndimage/src/ni_splines.c
@@ -179,7 +184,7 @@ def dct2_initial(inp, pole: float, dim: int = -1, keepdim: bool = False):
     return out
 
 
-@torch.jit.script
+@jitscript
 def dft_final(inp, pole: float, dim: int = -1, keepdim: bool = False):
 
     assert inp.shape[dim] > 1
@@ -206,7 +211,7 @@ def dft_final(inp, pole: float, dim: int = -1, keepdim: bool = False):
     return out
 
 
-@torch.jit.script
+@jitscript
 def dct1_final(inp, pole: float, dim: int = -1, keepdim: bool = False):
     inp = movedim1(inp, dim, 0)
     out = pole * inp[-2] + inp[-1]
@@ -216,7 +221,7 @@ def dct1_final(inp, pole: float, dim: int = -1, keepdim: bool = False):
     return out
 
 
-@torch.jit.script
+@jitscript
 def dct2_final(inp, pole: float, dim: int = -1, keepdim: bool = False):
     # Ported from scipy:
     # https://github.com/scipy/scipy/blob/master/scipy/ndimage/src/ni_splines.c
@@ -227,7 +232,7 @@ def dct2_final(inp, pole: float, dim: int = -1, keepdim: bool = False):
     return out
 
 
-@torch.jit.script
+@jitscript
 class CoeffBound:
 
     def __init__(self, bound: int):
@@ -254,7 +259,7 @@ class CoeffBound:
             raise NotImplementedError
 
 
-@torch.jit.script
+@jitscript
 def filter(inp, bound: CoeffBound, poles: List[float],
            dim: int = -1, inplace: bool = False):
 
@@ -284,10 +289,10 @@ def filter(inp, bound: CoeffBound, poles: List[float],
     return inp
 
 
-@torch.jit.script
+@jitscript
 def spline_coeff(inp, bound: int, order: int, dim: int = -1,
                  inplace: bool = False):
-    """Compute the interpolating spline coefficients, for a given 
+    """Compute the interpolating spline coefficients, for a given
     spline order and boundary conditions, along a single dimension.
 
     Parameters
@@ -313,10 +318,10 @@ def spline_coeff(inp, bound: int, order: int, dim: int = -1,
     return filter(inp, CoeffBound(bound), poles, dim=dim, inplace=True)
 
 
-@torch.jit.script
+@jitscript
 def spline_coeff_nd(inp, bound: List[int], order: List[int],
                     dim: Optional[int] = None, inplace: bool = False):
-    """Compute the interpolating spline coefficients, for a given 
+    """Compute the interpolating spline coefficients, for a given
     spline order and boundary condition, along the last `dim` dimensions.
 
     Parameters

@@ -1,12 +1,27 @@
 """A lot of utility functions for TorchScript"""
-import torch
+# stdlib
 import os
-from typing import List, Tuple, Optional
-from .utils import torch_version
+from typing import List, Optional
+
+# dependencies
+import torch
 from torch import Tensor
 
+# internal
+from .utils import torch_version, fake_decorator
 
-@torch.jit.script
+
+IS_JITSCRIPT_ACTIVATED = int(os.environ.get('PYTORCH_JIT', '1'))
+IS_JITSCRIPT_DEPRECATED = torch_version('>=', (2, 10))
+HAS_FLOOR_DIVIDE = torch_version('>=', (1, 6))
+
+if IS_JITSCRIPT_DEPRECATED:
+    jitscript = fake_decorator
+else:
+    jitscript = torch.jit.script
+
+
+@jitscript
 def pad_list_int(x: List[int], dim: int) -> List[int]:
     if len(x) < dim:
         x = x + x[-1:] * (dim - len(x))
@@ -15,7 +30,7 @@ def pad_list_int(x: List[int], dim: int) -> List[int]:
     return x
 
 
-@torch.jit.script
+@jitscript
 def pad_list_float(x: List[float], dim: int) -> List[float]:
     if len(x) < dim:
         x = x + x[-1:] * (dim - len(x))
@@ -24,7 +39,7 @@ def pad_list_float(x: List[float], dim: int) -> List[float]:
     return x
 
 
-@torch.jit.script
+@jitscript
 def pad_list_str(x: List[str], dim: int) -> List[str]:
     if len(x) < dim:
         x = x + x[-1:] * (dim - len(x))
@@ -33,7 +48,7 @@ def pad_list_str(x: List[str], dim: int) -> List[str]:
     return x
 
 
-@torch.jit.script
+@jitscript
 def list_any(x: List[bool]) -> bool:
     for elem in x:
         if elem:
@@ -41,7 +56,7 @@ def list_any(x: List[bool]) -> bool:
     return False
 
 
-@torch.jit.script
+@jitscript
 def list_all(x: List[bool]) -> bool:
     for elem in x:
         if not elem:
@@ -49,7 +64,7 @@ def list_all(x: List[bool]) -> bool:
     return True
 
 
-@torch.jit.script
+@jitscript
 def list_prod_int(x: List[int]) -> int:
     if len(x) == 0:
         return 1
@@ -59,7 +74,7 @@ def list_prod_int(x: List[int]) -> int:
     return x0
 
 
-@torch.jit.script
+@jitscript
 def list_sum_int(x: List[int]) -> int:
     if len(x) == 0:
         return 1
@@ -69,7 +84,7 @@ def list_sum_int(x: List[int]) -> int:
     return x0
 
 
-@torch.jit.script
+@jitscript
 def list_prod_tensor(x: List[Tensor]) -> Tensor:
     if len(x) == 0:
         empty: List[int] = []
@@ -80,7 +95,7 @@ def list_prod_tensor(x: List[Tensor]) -> Tensor:
     return x0
 
 
-@torch.jit.script
+@jitscript
 def list_sum_tensor(x: List[Tensor]) -> Tensor:
     if len(x) == 0:
         empty: List[int] = []
@@ -91,14 +106,14 @@ def list_sum_tensor(x: List[Tensor]) -> Tensor:
     return x0
 
 
-@torch.jit.script
+@jitscript
 def list_reverse_int(x: List[int]) -> List[int]:
     if len(x) == 0:
         return x
     return [x[i] for i in range(-1, -len(x)-1, -1)]
 
 
-@torch.jit.script
+@jitscript
 def list_cumprod_int(x: List[int], reverse: bool = False,
                      exclusive: bool = False) -> List[int]:
     if len(x) == 0:
@@ -118,7 +133,7 @@ def list_cumprod_int(x: List[int], reverse: bool = False,
     return lx
 
 
-@torch.jit.script
+@jitscript
 def movedim1(x, source: int, destination: int):
     dim = x.dim()
     source = dim + source if source < 0 else source
@@ -129,7 +144,7 @@ def movedim1(x, source: int, destination: int):
     return x.permute(permutation)
 
 
-@torch.jit.script
+@jitscript
 def sub2ind(subs, shape: List[int]):
     """Convert sub indices (i, j, k) into linear indices.
 
@@ -160,7 +175,7 @@ def sub2ind(subs, shape: List[int]):
     return ind
 
 
-@torch.jit.script
+@jitscript
 def sub2ind_list(subs: List[Tensor], shape: List[int]):
     """Convert sub indices (i, j, k) into linear indices.
 
@@ -194,22 +209,36 @@ def sub2ind_list(subs: List[Tensor], shape: List[int]):
 # advised to use div(..., rounding_mode='trunc'|'floor') instead.
 # Here, we only use floor_divide on positive values so we do not care.
 if torch_version('>=', [1, 8]):
-    @torch.jit.script
+    @jitscript
     def floor_div(x, y) -> torch.Tensor:
         return torch.div(x, y, rounding_mode='floor')
-    @torch.jit.script
+    @jitscript
     def floor_div_int(x, y: int) -> torch.Tensor:
         return torch.div(x, y, rounding_mode='floor')
 else:
-    @torch.jit.script
+    @jitscript
     def floor_div(x, y) -> torch.Tensor:
         return (x / y).floor_()
-    @torch.jit.script
+    @jitscript
     def floor_div_int(x, y: int) -> torch.Tensor:
         return (x / y).floor_()
 
 
-@torch.jit.script
+# In torch < 1.6, div applied to integer tensor performed a floor_divide
+# In torch > 1.6, it performs a true divide.
+# Floor division must be done using `floor_divide`, but it was buggy
+# until torch 1.13 (it was doing a trunc divide instead of a floor divide).
+# There was at some point a deprecation warning for floor_divide, but it
+# seems to have been lifted afterwards. In torch >= 1.13, floor_divide
+# performs a correct floor division.
+# Since we only apply floor_divide ot positive values, we are fine.
+if not HAS_FLOOR_DIVIDE:
+    floor_div = torch.div
+else:
+    floor_div = torch.floor_divide
+
+
+@jitscript
 def ind2sub(ind, shape: List[int]):
     """Convert linear indices into sub indices (i, j, k).
 
@@ -238,7 +267,7 @@ def ind2sub(ind, shape: List[int]):
     return sub
 
 
-@torch.jit.script
+@jitscript
 def inbounds_mask_3d(extrapolate: int, gx, gy, gz, nx: int, ny: int, nz: int) \
         -> Optional[Tensor]:
     # mask of inbounds voxels
@@ -255,7 +284,7 @@ def inbounds_mask_3d(extrapolate: int, gx, gy, gz, nx: int, ny: int, nz: int) \
     return mask
 
 
-@torch.jit.script
+@jitscript
 def inbounds_mask_2d(extrapolate: int, gx, gy, nx: int, ny: int) \
         -> Optional[Tensor]:
     # mask of inbounds voxels
@@ -271,7 +300,7 @@ def inbounds_mask_2d(extrapolate: int, gx, gy, nx: int, ny: int) \
     return mask
 
 
-@torch.jit.script
+@jitscript
 def inbounds_mask_1d(extrapolate: int, gx, nx: int) -> Optional[Tensor]:
     # mask of inbounds voxels
     mask: Optional[Tensor] = None
@@ -285,7 +314,7 @@ def inbounds_mask_1d(extrapolate: int, gx, nx: int) -> Optional[Tensor]:
     return mask
 
 
-@torch.jit.script
+@jitscript
 def make_sign(sign: List[Optional[Tensor]]) -> Optional[Tensor]:
     is_none : List[bool] = [s is None for s in sign]
     if list_all(is_none):
@@ -297,67 +326,67 @@ def make_sign(sign: List[Optional[Tensor]]) -> Optional[Tensor]:
     return list_prod_tensor(filt_sign)
 
 
-@torch.jit.script
+@jitscript
 def square(x):
     return x * x
 
 
-@torch.jit.script
+@jitscript
 def square_(x):
     return x.mul_(x)
 
 
-@torch.jit.script
+@jitscript
 def cube(x):
     return x * x * x
 
 
-@torch.jit.script
+@jitscript
 def cube_(x):
     return square_(x).mul_(x)
 
 
-@torch.jit.script
+@jitscript
 def pow4(x):
     return square(square(x))
 
 
-@torch.jit.script
+@jitscript
 def pow4_(x):
     return square_(square_(x))
 
 
-@torch.jit.script
+@jitscript
 def pow5(x):
     return x * pow4(x)
 
 
-@torch.jit.script
+@jitscript
 def pow5_(x):
     return pow4_(x).mul_(x)
 
 
-@torch.jit.script
+@jitscript
 def pow6(x):
     return square(cube(x))
 
 
-@torch.jit.script
+@jitscript
 def pow6_(x):
     return square_(cube_(x))
 
 
-@torch.jit.script
+@jitscript
 def pow7(x):
     return pow6(x) * x
 
 
-@torch.jit.script
+@jitscript
 def pow7_(x):
     return pow6_(x).mul_(x)
 
 
-@torch.jit.script
+@jitscript
 def dot(x, y, dim: int = -1, keepdim: bool = False):
     """(Batched) dot product along a dimension"""
     x = movedim1(x, dim, -1).unsqueeze(-2)
@@ -368,7 +397,7 @@ def dot(x, y, dim: int = -1, keepdim: bool = False):
     return d
 
 
-@torch.jit.script
+@jitscript
 def dot_multi(x, y, dim: List[int], keepdim: bool = False):
     """(Batched) dot product along a dimension"""
     for d in dim:
@@ -383,11 +412,10 @@ def dot_multi(x, y, dim: List[int], keepdim: bool = False):
     return dt
 
 
-
-# cartesian_prod takes multiple inout tensors as input in eager mode
+# cartesian_prod takes multiple input tensors as input in eager mode
 # but takes a list of tensor in jit mode. This is a helper that works
 # in both cases.
-if not int(os.environ.get('PYTORCH_JIT', '1')):
+if IS_JITSCRIPT_DEPRECATED or not IS_JITSCRIPT_ACTIVATED:
     cartesian_prod = lambda x: torch.cartesian_prod(*x)
     if torch_version('>=', (1, 10)):
         def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
@@ -407,17 +435,17 @@ if not int(os.environ.get('PYTORCH_JIT', '1')):
 else:
     cartesian_prod = torch.cartesian_prod
     if torch_version('>=', (1, 10)):
-        @torch.jit.script
+        @jitscript
         def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(x, indexing='ij')
-        @torch.jit.script
+        @jitscript
         def meshgrid_xy(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(x, indexing='xy')
     else:
-        @torch.jit.script
+        @jitscript
         def meshgrid_ij(x: List[torch.Tensor]) -> List[torch.Tensor]:
             return torch.meshgrid(x)
-        @torch.jit.script
+        @jitscript
         def meshgrid_xyt(x: List[torch.Tensor]) -> List[torch.Tensor]:
             grid = torch.meshgrid(x)
             if len(grid) > 1:
@@ -427,17 +455,3 @@ else:
 
 
 meshgrid = meshgrid_ij
-
-
-# In torch < 1.6, div applied to integer tensor performed a floor_divide
-# In torch > 1.6, it performs a true divide.
-# Floor division must be done using `floor_divide`, but it was buggy
-# until torch 1.13 (it was doing a trunc divide instead of a floor divide).
-# There was at some point a deprecation warning for floor_divide, but it
-# seems to have been lifted afterwards. In torch >= 1.13, floor_divide
-# performs a correct floor division.
-# Since we only apply floor_divide ot positive values, we are fine.
-if torch_version('<', (1, 6)):
-    floor_div = torch.div
-else:
-    floor_div = torch.floor_divide
